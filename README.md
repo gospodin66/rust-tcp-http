@@ -4,7 +4,7 @@ Each request is processed by worker thread from threadpool which max number is p
 
 ### Info
 
-Max number of workers in threadpool is defined in: \
+Max number of workers in threadpool is defined in: 
 ```
 server::threadpool::static THREAD_LIMIT : usize = 10;
 ```
