@@ -256,12 +256,12 @@ impl Token {
                 conn = connection;
             },
             Err(e) => {
-                let errmsg = format!("SQL: Error connecting to db: {}", e);
+                let errmsg: String = format!("SQL: Error connecting to db: {}", e);
                 println!("{}", errmsg);
                 return Err(e);
             }
         }
-        let stmt = "SELECT
+        let stmt: &str = "SELECT
                           user_id,
                           token_type,
                           access_token,
@@ -270,7 +270,7 @@ impl Token {
                           created_at,
                           updated_at
                           FROM tokens";
-        let select_res = conn.query_map(
+        let select_res: Result<Vec<Token>> = conn.query_map(
             stmt,
             |(user_id,
                 token_type,
@@ -306,7 +306,7 @@ impl Token {
 
     #[allow(dead_code)]
     pub fn create_tokens_from_vec() -> Result<()>{
-        let tokens = vec![
+        let tokens: Vec<Token> = vec![
             Token { 
                 user_id: 71,
                 token_type: String::from("Bearer"),
@@ -323,7 +323,7 @@ impl Token {
                 println!("insert success!\n");
             },
             Err(err) => {
-                let errmsg = format!("error on insert(): {}", err);
+                let errmsg: String = format!("error on insert(): {}", err);
                 println!("{}", &errmsg);
                 return Err(err);
             }
@@ -341,7 +341,7 @@ impl Token {
                     return Err(e);
                 }
             }
-            let stmt =
+            let stmt: &str =
             "INSERT INTO tokens
                 (user_id,
                  token_type,
@@ -375,7 +375,7 @@ impl Token {
                     println!("SQL: Successfuly inserted tokens!");
                 }
                 Err(err) => {
-                    let errmsg = format!("SQL: Error on insert(): {}", err);
+                    let errmsg: String = format!("SQL: Error on insert(): {}", err);
                     println!("{}", &errmsg);
                     return Err(err);
                 }

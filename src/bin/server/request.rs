@@ -8,7 +8,7 @@ pub fn validate_http_request(buffer: &str) -> Result<Vec<&str>, String> {
         }, 
         None => {
             // ???????
-            let errmsg = "request: Input does not consist of any newlines - not a HTTP request - skipping..";
+            let errmsg: &str = "request: Input does not consist of any newlines - not a HTTP request - skipping..";
             return Err(String::from(errmsg))
         }
     }
@@ -22,7 +22,7 @@ pub fn process_request(request_method: &str, route: &str, routes: &[&str; 3]) ->
             match database::User::create_users_from_vec() {
                 Ok(()) => {},
                 Err(e) => {
-                    let errmsg = format!("request: Error inserting users: {}", e);
+                    let errmsg: String = format!("request: Error inserting users: {}", e);
                     println!("{}", &errmsg);
                     return Err(errmsg);
                 }
@@ -32,7 +32,7 @@ pub fn process_request(request_method: &str, route: &str, routes: &[&str; 3]) ->
             match database::Token::create_tokens_from_vec() {
                 Ok(()) => {},
                 Err(e) => {
-                    let errmsg = format!("request: Error inserting tokens: {}", e);
+                    let errmsg: String = format!("request: Error inserting tokens: {}", e);
                     println!("{}", &errmsg);
                     return Err(errmsg);
                 }
@@ -49,7 +49,7 @@ pub fn process_request(request_method: &str, route: &str, routes: &[&str; 3]) ->
         if route == routes[1] {
             match database::User::select_all() {
                 Ok(u) => {
-                    let mut usersstr = String::new();
+                    let mut usersstr: String = String::new();
                     for user in u.iter() {
                         usersstr.push_str(database::User::user_to_string(&user).as_str());
                     }

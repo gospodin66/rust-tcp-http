@@ -1,14 +1,11 @@
 use std::borrow::Cow;
 use std::io::prelude::*;
-use std::net::{TcpStream,TcpListener};
-use std::sync::{Mutex,Arc};
+use std::net::{TcpStream, TcpListener, Shutdown, IpAddr};
+use std::sync::{Mutex, Arc};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
-use crate::server::request;
-use crate::server::response;
-use crate::server::cstmfiles;
-use crate::server::cstmconfig::AssetsConfig;
 use chrono::Local;
+use crate::server::{request, response, cstmfiles, cstmconfig::AssetsConfig};
     
 /*
  * 1. The ThreadPool will create a channel and hold on to the sending side of the channel.
@@ -41,7 +38,7 @@ impl ThreadPool {
     }
 
     pub fn execute<F>(&self, f: F) where F: FnOnce() + Send + 'static {
-        let job = Box::new(f);
+        let job: Box<F> = Box::new(f);
         self.tx.send(job).unwrap();
     }
 
@@ -58,7 +55,9 @@ pub struct Worker {
 
 impl Worker {
     pub fn new(id: usize, rx: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
-        let thr: JoinHandle<()> = thread::Builder::new().name("thr-worker".to_string()).spawn(move || loop {
+        let thr: JoinHandle<()> = thread::Builder::new()
+        .name(String::from("thr-worker"))
+        .spawn(move || loop {
             // retrieve job from channel
             let job: Box<dyn FnOnce() + Send> = rx.lock().unwrap().recv().unwrap();
             println!("-----------------------------------------");
@@ -88,6 +87,16 @@ pub fn handle_in_threadpool(
                     Ok(()) => println!("threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
                     Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
                 }
+
+                /*
+
+                
+                    TODO: Implement connections list 
+                
+                
+                 */
+
+
                 pool.execute(move || {
                     match handle_connection(stream_clone) {
                         Ok(()) => {},
@@ -111,11 +120,11 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), String> {
         Ok(bytes) => {
             let recv: Cow<str> = String::from_utf8_lossy(&buffer[..]);
             let data: &str = recv.trim_matches(char::from(0));
-            let ip = stream.peer_addr().unwrap().ip();
+            let ip: IpAddr = stream.peer_addr().unwrap().ip();
             let port: u16 = stream.peer_addr().unwrap().port();
             let msg: String = format!(
                 "[{}] -- [{}:{}] -- [{} bytes] [INIT-MSG]: {}\n",
-                Local::now().to_rfc3339(),
+                Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
                 ip,
                 port,
                 bytes,
@@ -133,7 +142,7 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), String> {
                         Ok(()) => {}, 
                         Err(e) => println!("threadpool: Error sending html response to {}:{}: {}", ip, port, e)
                     }
-                    println!("\n<<<");
+                    println!("\n<<<");                    
                 }, 
                 _ => {
                     /*
@@ -166,13 +175,15 @@ fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
             Ok(bytes) => {
                 if bytes == 0 {
                     println!("tcp-handler: Empty line");
+                    stream.shutdown(Shutdown::Both).unwrap();
+
                     break;
                 }
                 let recv = String::from_utf8_lossy(&buffer[..]);
                 let data: &str = recv.trim_matches(char::from(0));
                 let msg: String = format!(
                     "[{}] -- [{}:{}] -- [{} bytes]: {}\n",
-                    Local::now().to_rfc3339(),
+                    Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
                     ip,
                     port,
                     bytes,

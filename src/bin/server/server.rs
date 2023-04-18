@@ -5,6 +5,9 @@
 use std::net::{TcpStream,TcpListener,SocketAddr};
 use std::sync::{Arc,Mutex,mpsc};
 
+use crate::server::cstmconfig::AssetsConfig;
+use crate::server::thrchannel::ThrChannel;
+
 mod threadpool;
 mod thrstdin;
 mod helpers;
@@ -24,15 +27,15 @@ impl Server {
         let cfg: cstmconfig::ServerConfig = cstmconfig::ServerConfig::new_cfg();
         let port1 : u16 = cfg.port1;
         let port2 : u16 = cfg.port2;
-        let assets_cfg = cstmconfig::AssetsConfig::new_cfg();
-        let fpath = assets_cfg.log_dir+"/"+&assets_cfg.log_path;
+        let assets_cfg: AssetsConfig = cstmconfig::AssetsConfig::new_cfg();
+        let fpath: String = assets_cfg.log_dir+"/"+&assets_cfg.log_path;
         /*
         *  convert ip address from .env file: String => Vec<&str> => Vec<u8> => [u8; 4]
         */
         let ip_str : Vec<&str> = cfg.host.as_str().split('.').collect();
-        let ip_vec : Vec<u8> = ip_str.into_iter().map(|val| val.parse::<u8>().unwrap()).collect();
+        let ip_vec : Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
         let ip : [u8; 4] = helpers::vec_to_arr(ip_vec);
-        let addrs = [
+        let addrs: [SocketAddr; 2] = [
             SocketAddr::from((ip, port1)),
             SocketAddr::from((ip, port2)),
         ];
@@ -41,7 +44,7 @@ impl Server {
             Err(_e) => {}
         }
         println!("core: Initializing thread channel.");
-        let thrstdin_thrmain_channel = thrchannel::ThrChannel::new_channel();
+        let thrstdin_thrmain_channel: ThrChannel = thrchannel::ThrChannel::new_channel();
         println!("core: Initializing input thread.");
         thrstdin::init_thread(thrstdin_thrmain_channel.rx).unwrap();
         match self::init_server(&addrs) {

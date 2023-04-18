@@ -93,8 +93,8 @@ impl ServerConfig {
             Some(_envpath) => {},
             None => {
                 println!("ServerConfig: Error loading env vars - loading default");
-                let request_methods = String::from("GET,POST,OPTIONS,HEAD");
-                let req_meth = request_methods.split(",")
+                let request_methods: String = String::from("GET,POST,OPTIONS,HEAD");
+                let req_meth: Vec<String> = request_methods.split(",")
                                               .map(str::to_string)
                                               .collect();
                 let _server_cfg : ServerConfig = ServerConfig {
@@ -109,11 +109,11 @@ impl ServerConfig {
         let port2_str: String = dotenv::var("SERVER.PORT2").unwrap();
         let port1: u16 = port1_str.trim().parse::<u16>().unwrap();
         let port2: u16 = port2_str.trim().parse::<u16>().unwrap();
-        let request_methods = dotenv::var("SERVER.REQUEST_METHODS").unwrap();
-        let req_meth = request_methods.split(",")
+        let request_methods: String = dotenv::var("SERVER.REQUEST_METHODS").unwrap();
+        let req_meth: Vec<String> = request_methods.split(",")
                                       .map(str::to_string)
                                       .collect();
-        let _server_cfg : ServerConfig = ServerConfig {
+        let _server_cfg: ServerConfig = ServerConfig {
             host: dotenv::var("SERVER.HOST").unwrap(),
             port1: port1,
             port2: port2,

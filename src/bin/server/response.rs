@@ -9,7 +9,7 @@ use crate::server::cstmconfig::{AssetsConfig, ServerConfig, BaseConfig};
 use crate::server::headers;
 
 fn validate_request_method(meth: &str) -> Result<(), String> {
-    let server_config = ServerConfig::new_cfg();
+    let server_config: ServerConfig = ServerConfig::new_cfg();
     for method in server_config.request_methods {
         if meth == method {
             return Ok(());
@@ -62,7 +62,7 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,[&str;3],String,String
         }
     };
     let res_ok : String = format!("{} 200 OK", BaseConfig::new_cfg().http_protocol);
-    let assets_cfg = AssetsConfig::new_cfg();
+    let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
     let http_req : Vec<&str>;
     /*
      * use 1st tuple val of buffer, drop the rest as
@@ -77,9 +77,9 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,[&str;3],String,String
         }
     }
 
-    let req_method = http_req[0];
-    let req_route = http_req[1];
-    let routes = get_routes(req_method);
+    let req_method: &str = http_req[0];
+    let req_route: &str = http_req[1];
+    let routes: [&str; 3] = get_routes(req_method);
 
     match validate_route(&req_route, routes) {
         Ok(()) => {},
@@ -150,7 +150,7 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
         }
     }
 
-    let headers = headers::fetch_headers(contents_all.len());
+    let headers: [String; 10] = headers::fetch_headers(contents_all.len());
     /*
      * HTTP text-based protocol basic response format:
      * {HTTP/1.1 200 OK}\r\n
@@ -166,7 +166,7 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
 
     match stream.write(response.as_bytes()) {
         Ok(bytes) => {
-            let msg = format!(
+            let msg: String = format!(
                 "[{}]: http-response: Successfuly written {} bytes to stream.",
                 Local::now().to_rfc3339(),
                 bytes

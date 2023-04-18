@@ -17,6 +17,6 @@ rand = "0.8.5"
 aes-gcm = "0.10.1"
 url = "*"
 
-[[encrypter]]
-name = "encrypter"
-crate-type = ["staticlib"]
+# [[encrypter]]
+# name = "encrypter"
+# crate-type = ["staticlib"]
