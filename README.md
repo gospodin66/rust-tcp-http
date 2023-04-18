@@ -26,13 +26,13 @@ cargo run --bin rust-tcp-http
 
 
 ### tcp requests:
-cargo run --bin client <server_ip> <server_port(pre-defined: 9998|9999)>
+cargo run --bin client <server_ip> <server_port>
 
 
 ### Http requests:
-# insert user (pre-defined values):
+# insert user (pre-defined values in database::create_users_from_vec()):
 curl -X POST <server_ip>:<server_port>/users
-# insert token (pre-defined values):
+# insert token (pre-defined values in database::create_tokens_from_vec()):
 curl -X POST <server_ip>:<server_port>/tokens
 
 # get users:
@@ -42,7 +42,13 @@ curl <server_ip>:<server_port>/tokens
   
   
 # run encrypter:
-cargo run --bin encrypter <algo(RSA|AES)> <data> <mode(private|public)> <passphrase> <keypair_id(creates new id if non-existing)>
+cargo run \
+      --bin encrypter \
+      <algo(RSA|AES)> \
+      <data> \
+      <mode(private|public)> \
+      <passphrase> \
+      <keypair_id(creates new id if non-existing)>
   
 ```
 
