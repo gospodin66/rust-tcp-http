@@ -1,0 +1,22 @@
+[package]
+name = "rust-tcp-http"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/gospodin66/rust-tcp-http"
+
+[dependencies]
+mysql = "*"
+chrono = "0.4"
+dotenv = "0.15.0"
+config = "0.10.1"
+openssl = "0.10.41"
+base64 = "0.13.0"
+async-std = "*"
+futures = "*"
+rand = "0.8.5"
+aes-gcm = "0.10.1"
+url = "*"
+
+[[encrypter]]
+name = "encrypter"
+crate-type = ["staticlib"]
