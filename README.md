@@ -4,8 +4,15 @@ Each request is processed by worker thread from threadpool which max number is p
 
 ### Info
 
-Max number of workers in threadpool is defined in `src/bin/server/threadpool.rs::static THREAD_LIMIT : usize = 10;` \
-Server & database configuration is loaded from `.env`: `$ mv .env.example .env && vi .env` -- populate the file --
+Max number of workers in threadpool is defined in: \
+```
+server::threadpool::static THREAD_LIMIT : usize = 10;
+```
+Server & database configuration is loaded from `.env`:
+```
+# Fresh deployment
+$ mv .env.example .env && vi .env
+```
 
 HTTP requests are used for database queries (`GET = SELECT` & `POST = INSERT`). \
 Non-HTTP TCP request opens persistent connection to server (exchange messages). \
