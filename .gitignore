@@ -2,3 +2,4 @@
 /src/bin/server/log/
 /src/bin/encrypter/*-keys/
 .env
+.vscode/

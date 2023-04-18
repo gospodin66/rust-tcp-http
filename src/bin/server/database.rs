@@ -97,7 +97,9 @@ impl User {
                           avatar,
                           created_at,
                           updated_at
-                          FROM users";
+                          FROM users
+                          ORDER BY created_at
+                          DESC";
         let select_res = conn.query_map(
             stmt,
             |(role_id,
@@ -156,9 +158,7 @@ impl User {
         ];
         /********************************************/
         match insert(users) {
-            Ok(()) => {
-                println!("insert success!\n");
-            },
+            Ok(()) => {},
             Err(err) => {
                 let errmsg = format!("SQL: Error on insert(): {}", err);
                 println!("{}", &errmsg);
@@ -215,17 +215,20 @@ impl User {
                 "created_at" => &u.created_at,
                 "updated_at" => &u.updated_at
             });
-            println!("params to insert:\n\n{:?}\n", __params);
-            match conn.exec_batch(stmt, __params) {
+            let mut tx: Transaction = conn.start_transaction(TxOpts::default())?;
+            println!("SQL: Params to insert:\n{:?}\n", __params);
+            match tx.exec_batch(stmt, __params) {
                 Ok(()) => {
                     println!("SQL: Successfuly inserted users!");
                 }
                 Err(err) => {
+                    tx.rollback().unwrap();
                     let errmsg = format!("SQL: Error on insert(): {}", err);
                     println!("{}", &errmsg);
                     return Err(err);
                 }
             }
+            tx.commit().unwrap();
             Ok(())
         }
         /********************************************/
@@ -269,7 +272,9 @@ impl Token {
                           token_expire,
                           created_at,
                           updated_at
-                          FROM tokens";
+                          FROM tokens
+                          ORDER BY created_at
+                          DESC";
         let select_res: Result<Vec<Token>> = conn.query_map(
             stmt,
             |(user_id,
@@ -319,9 +324,7 @@ impl Token {
         ];
         /********************************************/
         match insert(tokens) {
-            Ok(()) => {
-                println!("insert success!\n");
-            },
+            Ok(()) => {},
             Err(err) => {
                 let errmsg: String = format!("error on insert(): {}", err);
                 println!("{}", &errmsg);
@@ -369,17 +372,20 @@ impl Token {
                 "created_at" => &t.created_at,
                 "updated_at" => &t.updated_at
             });
-            println!("SQL: Params to insert:\n\n{:?}\n", __params);
-            match conn.exec_batch(stmt, __params) {
+            let mut tx: Transaction = conn.start_transaction(TxOpts::default())?;
+            println!("SQL: Params to insert:\n{:?}\n", __params);
+            match tx.exec_batch(stmt, __params) {
                 Ok(()) => {
                     println!("SQL: Successfuly inserted tokens!");
                 }
                 Err(err) => {
+                    tx.rollback().unwrap();
                     let errmsg: String = format!("SQL: Error on insert(): {}", err);
                     println!("{}", &errmsg);
                     return Err(err);
                 }
             }
+            tx.commit().unwrap();
             Ok(())
         }
         /********************************************/
