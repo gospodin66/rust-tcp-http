@@ -1,5 +1,6 @@
 use crate::server::database;
 
+
 pub fn validate_http_request(buffer: &str) -> Result<Vec<&str>, String> {
     match buffer.split_once("\r\n") {
         Some(httprequest) => {
@@ -14,7 +15,7 @@ pub fn validate_http_request(buffer: &str) -> Result<Vec<&str>, String> {
     }
 }
 
-pub fn process_request(request_method: &str, route: &str, routes: &[&str; 3]) -> Result<String, String>{
+pub fn process_request(request_method: &str, route: &str, routes: &Vec<&str>) -> Result<String, String>{
     let mut response_data : String = String::new();
     // SELECT on GET | INSERT on POST
     if request_method == "POST" {
@@ -76,6 +77,22 @@ pub fn process_request(request_method: &str, route: &str, routes: &[&str; 3]) ->
         }
         else if route == routes[0] { /*** (default route '/') */
             response_data = String::from("Default route - default response :3")
+        }
+        else if route == routes[3] {
+            let table = String::from("test_table");
+            let columns: Vec<String> = vec![
+                "id".to_string(), 
+                "name".to_string(), 
+                "description".to_string(), 
+                "created_at".to_string(), 
+                "updated_at".to_string()
+            ];
+            match database::create_table(table, columns) {
+                Ok(()) => {},
+                Err(e) => {
+                    println!("SQL Error creating table: {}", e)
+                }
+            }
         }
         else {
             return Err(String::from(format!("request: Invalid route {}", route)))

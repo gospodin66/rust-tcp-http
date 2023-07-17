@@ -53,6 +53,15 @@ cargo run \
 ```
 
 
+### SSH tunnel
+```bash
+ssh -v -L 127.0.0.1:47111:<rust_server_ip>:<rust_server_port> localhost
+
+# client requests get forwarded to rust server
+cargo run --bin client 127.0.0.1 47111
+```
+
+
 ### Database
 ```sql
 -- 'rust_db' database:

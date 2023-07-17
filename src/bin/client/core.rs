@@ -17,8 +17,15 @@ use crate::coreerr::CoreErr;
 
 
 pub fn client() -> Result<(), CoreErr>{
-    let arg_host: String = env::args().nth(1).unwrap();
-    let arg_port: u16 = env::args().nth(2).unwrap().parse::<u16>().unwrap();
+    let arg_host: String = match env::args().nth(1) {
+        Some(host) => host,
+        None => return Err(CoreErr { errmsg: format!("No target host ip specified"), errno: 1 })
+    };
+    let arg_port: u16 = match env::args().nth(2) {
+        Some(port) => port.parse::<u16>().unwrap(),
+        None => return Err(CoreErr { errmsg: format!("No target host port specified"), errno: 1 })
+    };
+
     let ip_str: Vec<&str> = arg_host.as_str().split('.').collect();
     let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
     let ip: [u8; 4] = helpers::vec_to_arr(ip_vec);
@@ -48,8 +55,8 @@ pub fn client() -> Result<(), CoreErr>{
                         let recv: Cow<str> = String::from_utf8_lossy(&client_buffer[..]);
                         let data: &str = recv.trim_matches(char::from(0));
                         let msg: String = format!(
-                            "[{time}] -- {ip}:{port} [{bytes}b] :: {data}\n",
-                            time=Local::now().to_rfc3339(),
+                            "[{time}] -- {ip}:{port} [{bytes} bytes] :: {data}\n",
+                            time=Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
                             ip=ip,
                             port=port,
                             bytes=n,

@@ -32,15 +32,90 @@ pub struct Token {
 }
 
 
+pub struct Database {
+    host: String,
+    port: u16,
+    user: String,
+    password: String,
+    database: String,
+}
+
+
+impl Database {
+    fn init(host: String, port: u16, user: String, password: String, database: String) -> Self {
+        Database { host, port, user, password, database }
+    }
+
+}
+
+
+
+pub fn create_table(table: String, columns: Vec<String>) -> Result<(), > {
+
+    let mut conn: Conn;
+    match init_db() {
+        Ok(connection) => {
+            conn = connection;
+        },
+        Err(e) => {
+            let errmsg = format!("SQL: Error connecting to db: {}", e);
+            println!("{}", errmsg);
+            return Err(e);
+        }
+    }
+
+    let mut tx: Transaction = conn.start_transaction(TxOpts::default()).unwrap();
+    let mut columns_sql: Vec<String> = Vec::new();
+    let mut column_meta: String;
+
+    for (i, column) in columns.iter().enumerate() {
+        if column == "id" {
+            column_meta = format!("{} BIGINT AUTO_INCREMENT PRIMARY KEY", column);
+        } else if column == "created_at" || column == "updated_at" {
+            column_meta = format!("{} TIMESTAMP NOT NULL", column);
+        } else {
+            column_meta = format!("{} VARCHAR(255) NOT NULL", column);
+        }
+        
+        if i < columns.len() -1 {
+            column_meta = format!("{},", column_meta);
+        }
+
+        columns_sql.push(column_meta);
+
+    }
+
+    let query = format!("CREATE TABLE {} ({})", table, &columns_sql.join(" "));
+
+    println!("DEBUG QUERY: {:?}", query);
+
+    match tx.query_drop(query) {
+        Ok(_) => {
+            Ok(())
+        },
+        Err(e) => {
+            tx.rollback().unwrap();
+            Err(e)
+        }
+    }
+    
+}
 
 fn init_db() -> Result<Conn> {
     let db_config : cstmconfig::DbConfig = cstmconfig::DbConfig::new_cfg();
-    let opts = OptsBuilder::new()
-                .ip_or_hostname(Some(db_config.host))
-                .tcp_port(db_config.port)
-                .user(Some(db_config.user))
-                .pass(Some(db_config.password))
-                .db_name(Some(db_config.database));
+    let db: Database = Database::init(
+        db_config.host,
+        db_config.port,
+        db_config.user,
+        db_config.password,
+        db_config.database
+    );
+    let opts: OptsBuilder = OptsBuilder::new()
+                .ip_or_hostname(Some(db.host))
+                .tcp_port(db.port)
+                .user(Some(db.user))
+                .pass(Some(db.password))
+                .db_name(Some(db.database));
     match Conn::new(opts) {
         Ok(connection) => {
             Ok(connection)

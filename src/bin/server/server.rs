@@ -19,6 +19,8 @@ mod request;
 mod response;
 mod thrchannel;
 
+const IDENTIFICATOR: &str = "core";
+
 pub struct Server {}
 
 impl Server {
@@ -40,28 +42,30 @@ impl Server {
             SocketAddr::from((ip, port2)),
         ];
         match cstmfiles::f_create(&fpath) {
-            Ok(()) => { println!("core: Successfuly created log file at {}", &fpath); }
+            Ok(()) => { println!("{}: Successfuly created log file at {}", IDENTIFICATOR, &fpath); }
             Err(_e) => {}
         }
-        println!("core: Initializing thread channel.");
+        
+        println!("{}: Initializing thread channel.", IDENTIFICATOR);
         let thrstdin_thrmain_channel: ThrChannel = thrchannel::ThrChannel::new_channel();
-        println!("core: Initializing input thread.");
+        println!("{}: Initializing input thread.", IDENTIFICATOR);
         thrstdin::init_thread(thrstdin_thrmain_channel.rx).unwrap();
+
         match self::init_server(&addrs) {
             Ok(listener) => {
-                println!("core: [{}] listening for connections..", &addrs[0]);
+                println!("{}: [{}] listening for connections..", IDENTIFICATOR, &addrs[0]);
                 match self::listen_for_connections(
                     &listener,
                     thrstdin_thrmain_channel.tx
                 ) {
                     Ok(()) => { Ok(()) },
                     Err(e) => {
-                        return Err(format!("core: Error on listener: {}", e));
+                        return Err(format!("{}: Error on listener: {}", IDENTIFICATOR, e));
                     }
                 }
             }, 
             Err(e) => {
-                return Err(format!("core: Error initializing server: {}", e));
+                return Err(format!("{}: Error initializing server: {}", IDENTIFICATOR, e));
             }
         }
     }
@@ -72,11 +76,11 @@ fn init_server(ip_port: &[SocketAddr; 2]) -> Result<TcpListener, String>{
     match TcpListener::bind(format!("{}", ip_port[0])) {
         Ok(listener) => { Ok(listener) },
         _ => {
-            println!("core: Error on bind().. trying another ip:port pair..");
+            println!("{}: Error on bind().. Trying fallback ip:port pair..", IDENTIFICATOR);
             match TcpListener::bind(format!("{}", ip_port[1])) {
                 Ok(listener) => { Ok(listener) },
                 _ => {
-                    return Err(format!("core: Error on bind() on fallback ip:port pair."));
+                    return Err(format!("{}: Error on bind() on fallback ip:port pair.", IDENTIFICATOR));
                 }
             }
         }
@@ -89,8 +93,8 @@ fn listen_for_connections(
     thrstdin_thrmain_channel_tx: Arc<Mutex<mpsc::Sender<TcpStream>>>
 ) -> Result<(), String> {
     match threadpool::handle_in_threadpool(&listener, thrstdin_thrmain_channel_tx) {
-        Ok(()) => { println!("core: Worker finsihed the job successfuly."); },
-        Err(e) => { println!("core: Error on threadpool handler: {}", e); }
+        Ok(()) => { println!("{}: Worker finsihed the job successfuly.", IDENTIFICATOR); },
+        Err(e) => { println!("{}: Error on threadpool handler: {}", IDENTIFICATOR, e); }
     }
     Ok(())
 }

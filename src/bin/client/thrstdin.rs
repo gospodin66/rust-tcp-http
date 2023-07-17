@@ -30,7 +30,7 @@ pub fn loop_user_stdin(mut stream: TcpStream) -> Result<(), String> {
             match stream.write(response.as_bytes()) {
                 Ok(bytes) => {
                     println!("> bytes sent: {}", bytes);
-                }, 
+                },
                 Err(e) => { 
                     println!("thrstdin: Error writing to stream: {:?} -- {}", stream, e);
                     break;

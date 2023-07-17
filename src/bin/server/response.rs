@@ -17,35 +17,38 @@ fn validate_request_method(meth: &str) -> Result<(), String> {
     }
     Err(String::from("http-response: Invalid request method."))
 }
-fn validate_route<'a>(route: &'a str, routes: [&str; 3]) -> Result<(), String> {
-    for r in routes {
-        if r == route {
+fn validate_route<'a>(route: &'a str, routes: &Vec<&str>) -> Result<(), String> {
+    for (_, r) in routes.iter().enumerate() {
+        if <String as From<&str>>::from(r) == String::from(route) {
             return Ok(());
         }
     }
     Err(String::from("http-response: Invalid route path."))
 }
 
-fn fetch_get_routes() -> [&'static str; 3] {
-    [
+fn fetch_get_routes() -> Vec<&'static str> {
+    vec![
         "/",
         "/users",
-        "/tokens"
+        "/tokens",
+        "/table"
     ]
 }
-fn fetch_post_routes() -> [&'static str; 3] {
-    [
+fn fetch_post_routes() -> Vec<&'static str> {
+    vec![
         "/",
         "/users",
-        "/tokens"
+        "/tokens",
+        "/table"
     ]
 }
-fn fetch_empty_routes() -> [&'static str; 3] {
-    return ["", "", ""]
+fn fetch_empty_routes() -> Vec<&'static str> {
+    return vec![]
 }
 
-fn build_http_response(buffer: &str) -> Result<(&str,&str,[&str;3],String,String), String> {
-    let get_routes = |req_method: &str| -> [&'static str; 3] {
+
+fn build_http_response(buffer: &str) -> Result<(&str,&str,Vec<&str>,String,String), String> {
+    let get_routes = |req_method: &str| -> Vec<&str> {
         match validate_request_method(&req_method) {
             Ok(()) => {
                 if req_method == "GET" {
@@ -79,9 +82,9 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,[&str;3],String,String
 
     let req_method: &str = http_req[0];
     let req_route: &str = http_req[1];
-    let routes: [&str; 3] = get_routes(req_method);
+    let routes: Vec<&str> = get_routes(req_method);
 
-    match validate_route(&req_route, routes) {
+    match validate_route(&req_route, &routes) {
         Ok(()) => {},
         Err(e) => {
             return Err(format!("http-response: Error validating HTTP route: {}", e));
@@ -101,11 +104,12 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,[&str;3],String,String
     Ok((req_method, req_route, routes, status_line, view_file))
 }
 
+
 pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), String> {
     let mut response_data: String = String::new();
     let mut response: String = String::new();
     let mut contents_all: String = String::new();
-    let (req_method, route, routes, mut status_line, view_file) : (&str,&str,[&str;3],String,String);
+    let (req_method, route, routes, mut status_line, view_file) : (&str,&str,Vec<&str>,String,String);
     let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
     let fpath: String = assets_cfg.log_dir+"/"+&assets_cfg.log_path;
 
@@ -188,6 +192,5 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
             println!("http-response: Error flushing stream: {}", e);
         }
     }
-
     Ok(())
 }
