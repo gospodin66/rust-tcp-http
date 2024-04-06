@@ -3,3 +3,4 @@
 /src/bin/encrypter/*-keys/
 .env
 .vscode/
+log/

@@ -11,7 +11,7 @@ server::threadpool::static THREAD_LIMIT : usize = 10;
 Server & database configuration is loaded from `.env`:
 ```
 # Fresh deployment
-$ mv .env.example .env && vi .env
+$ cp .env.example .env && vi .env
 ```
 
 HTTP requests are used for database queries (`GET = SELECT` & `POST = INSERT`). \

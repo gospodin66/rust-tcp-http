@@ -31,7 +31,6 @@ pub struct Token {
     updated_at: String
 }
 
-
 pub struct Database {
     host: String,
     port: u16,
@@ -45,7 +44,6 @@ impl Database {
     fn init(host: String, port: u16, user: String, password: String, database: String) -> Self {
         Database { host, port, user, password, database }
     }
-
 }
 
 
@@ -162,19 +160,19 @@ impl User {
             }
         }
         let stmt = "SELECT
-                          role_id,
-                          username,
-                          email,
-                          password,
-                          config,
-                          active,
-                          remember_token,
-                          avatar,
-                          created_at,
-                          updated_at
-                          FROM users
-                          ORDER BY created_at
-                          DESC";
+                     role_id,
+                     username,
+                     email,
+                     password,
+                     config,
+                     active,
+                     remember_token,
+                     avatar,
+                     created_at,
+                     updated_at
+                    FROM users
+                    ORDER BY created_at
+                    DESC";
         let select_res = conn.query_map(
             stmt,
             |(role_id,
@@ -340,13 +338,13 @@ impl Token {
             }
         }
         let stmt: &str = "SELECT
-                          user_id,
-                          token_type,
-                          access_token,
-                          refresh_token,
-                          token_expire,
-                          created_at,
-                          updated_at
+                           user_id,
+                           token_type,
+                           access_token,
+                           refresh_token,
+                           token_expire,
+                           created_at,
+                           updated_at
                           FROM tokens
                           ORDER BY created_at
                           DESC";

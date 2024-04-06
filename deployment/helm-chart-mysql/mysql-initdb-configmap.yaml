@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: custom-dev
+  name: mysql-initdb
+  labels:
+    app: mysql-initdb
+data:
+  initdb.sql: |
+    CREATE database IF NOT EXISTS rust_db;
+    CREATE USER 'root'@'%' IDENTIFIED BY 'rootpassword';
+    GRANT ALL PRIVILEGES ON basic.* TO 'kubeuser'@'%' WITH GRANT OPTION;
+    GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
+    GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+    FLUSH PRIVILEGES;

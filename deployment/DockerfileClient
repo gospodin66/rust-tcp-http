@@ -1,0 +1,8 @@
+FROM redhat/ubi8-micro
+
+ADD target/debug/client /rust-client
+ADD .env /.env
+
+RUN sed -i 's/127.0.0.1/server-tcp/g' /.env
+
+ENTRYPOINT [ "rust-client" ]

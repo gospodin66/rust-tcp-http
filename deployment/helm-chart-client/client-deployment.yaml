@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+spec:
+  selector:
+    matchLabels:
+      app: client
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+      - image: rust-client:1.0
+        name: client
+        command: ["rust-client"]
+        args: ["IP", "44555"]

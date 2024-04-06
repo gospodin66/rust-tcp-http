@@ -7,13 +7,10 @@ use std::sync::mpsc::TryRecvError;
 use std::net::{Shutdown};
 use std::fs::File;
 use std::io::{self, Read, Write};
-
 use super::cstmconfig::AssetsConfig;
 use super::helpers;
 
-
 const IDENTIFICATOR: &str = "thrstdin";
-
 
 
 pub fn init_thread(
@@ -48,8 +45,8 @@ pub fn loop_user_stdin(
     let fpath: String = String::from(assets_cfg.log_dir+"/"+&assets_cfg.log_path);
 
     thread::Builder::new()
-    .name("thr-stdin".to_string())
-    .spawn(move || loop {
+      .name("thr-stdin".to_string())
+      .spawn(move || loop {
         /*
          * Fetch new connections from thrstdin_thrmain_channel here 
          *    -- rx.try_recv() -> for non-blocking
@@ -65,13 +62,10 @@ pub fn loop_user_stdin(
                 }
             }
         }
-
         let response = process_stdin();
-        
         if response.is_empty() {
             continue;
         }
-
         if response == "exit:" {
             dc_all_nodes(&streams);
             streams.clear();
@@ -88,7 +82,7 @@ pub fn loop_user_stdin(
         }
         else if response.starts_with("conn:") {
             /*
-             * format: conn:127.0.0.1:1119
+             * format: conn:127.0.0.1:46999
              */
             let (ip, port): (&str, &str) = match response[5..].split_once(":") {
                 Some(ip_port) => ip_port,
@@ -116,7 +110,7 @@ pub fn loop_user_stdin(
         }
         else if response.starts_with("sendf:") {
             /*
-             * format: sendf:/home/cheki/projects/rust-tcp-http/README.md:192.168.1.61:9998
+             * format: sendf:/home/cheki/workspace/rust-tcp-http/README.md:127.0.0.1:47074
              */
             let path_ip_port = response[6..].split_once(":").unwrap();
             let file_path = path_ip_port.0;

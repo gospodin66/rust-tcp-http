@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+spec:
+  selector:
+    matchLabels:
+      app: server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      containers:
+      - image: rust-server:1.0
+        name: server
+        command: ["rust-server"]
