@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+spec:
+  selector:
+    matchLabels:
+      app: server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      initContainers:
+      - name: init-server
+        image: busybox:1.28
+        command: [
+          'sh', 
+          '-c', 
+          "set -ex; ls -ltra /tmp/envfile/.env;"
+        ]
+        volumeMounts:
+        - name: server-env
+          mountPath: /tmp/envfile
+      containers:
+      - image: rust-server:1.0
+        name: server
+        stdin: true 
+        tty: true 
+        command: ["/bin/server"]
+        volumeMounts:
+        - name: server-env
+          mountPath: /tmp/envfile
+      volumes:
+      - name: server-env
+        configMap: 
+          name: server-env
+          items:
+            - key: .env
+              path: .env

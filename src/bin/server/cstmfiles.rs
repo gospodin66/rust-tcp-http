@@ -2,7 +2,7 @@ use std::fs;
 use std::fs::OpenOptions;
 use std::io::{BufReader, Read, Write, Error, ErrorKind};
 use std::os::unix::fs::OpenOptionsExt;
-use crate::server::cstmconfig::{AssetsConfig};
+use crate::server::cstmconfig::AssetsConfig;
 #[allow(unused_imports)]
 use std::path::Path;
 

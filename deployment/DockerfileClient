@@ -1,8 +1,51 @@
-FROM redhat/ubi8-micro
+FROM rust:1.70.0-slim-bullseye as build
 
-ADD target/debug/client /rust-client
-ADD .env /.env
+RUN apt update -y && apt install pkg-config openssl libssl-dev -y
 
-RUN sed -i 's/127.0.0.1/server-tcp/g' /.env
+ARG APP_NAME=client
+WORKDIR /app
 
-ENTRYPOINT [ "rust-client" ]
+# Build the application.
+# Leverage a cache mount to /usr/local/cargo/registry/
+# for downloaded dependencies and a cache mount to /app/target/ for 
+# compiled dependencies which will speed up subsequent builds.
+# Leverage a bind mount to the src directory to avoid having to copy the
+# source code into the container. Once built, copy the executable to an
+# output directory before the cache mounted /app/target is unmounted.
+RUN --mount=type=bind,source=src,target=src \
+    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
+    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
+    --mount=type=cache,target=/app/target/ \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
+    <<EOF
+set -ex
+cargo build --locked --release
+cp /app/target/release/$APP_NAME /bin/$APP_NAME
+EOF
+
+#
+# create environment to run the app
+#
+FROM debian:bullseye-slim AS final
+
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
+
+ARG LOG_BASEDIR=/tmp/log
+RUN mkdir -p ${LOG_BASEDIR}
+RUN touch ${LOG_BASEDIR}logs.log && \
+    chmod 664 ${LOG_BASEDIR}logs.log && \
+    chown -R appuser:appuser ${LOG_BASEDIR}
+
+USER appuser
+
+COPY --from=build /bin/$APP_NAME /bin/
+
+CMD ["/bin/$APP_NAME"]

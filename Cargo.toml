@@ -16,6 +16,7 @@ futures = "*"
 rand = "0.8.5"
 aes-gcm = "0.10.1"
 url = "*"
+local-ip-address = "0.6.1"
 
 # [[encrypter]]
 # name = "encrypter"

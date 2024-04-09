@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+spec:
+  selector:
+    matchLabels:
+      app: client
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+      - image: rust-client:1.0
+        name: client
+        stdin: true 
+        tty: true 
+        command: ["/bin/client"]
+        args: ["10.42.0.98", "31500"]
+        volumeMounts:
+        - mountPath: /tmp/envfile
+          name: client-env
+      volumes:
+      - name: client-env
+        configMap: 
+          name: client-env
+          items:
+            - key: .env
+              path: .env

@@ -1,3 +1,5 @@
+use local_ip_address::list_afinet_netifas;
+
 #[derive(Debug)]
 pub struct ServerConfig {
     pub host: String,
@@ -32,6 +34,7 @@ pub struct AppConfig {
 }
 
 
+const ENV_PATH: &str = "/tmp/envfile/.env";
 
 #[allow(dead_code)]
 impl AppConfig {
@@ -47,7 +50,7 @@ impl AppConfig {
 
 impl BaseConfig {
     pub fn new_cfg() -> BaseConfig {
-        match dotenv::dotenv().ok() {
+        match dotenv::from_path(ENV_PATH).ok() {
             Some(_envpath) => {},
             None => {
                 println!("BaseConfig: Error loading env vars: loading default");
@@ -66,7 +69,7 @@ impl BaseConfig {
 
 impl AssetsConfig {
     pub fn new_cfg() -> AssetsConfig {
-        match dotenv::dotenv().ok() {
+        match dotenv::from_path(ENV_PATH).ok() {
             Some(_envpath) => {},
             None => {
                 println!("AssetsConfig: Error loading env vars: loading default");
@@ -89,7 +92,9 @@ impl AssetsConfig {
 
 impl ServerConfig {
     pub fn new_cfg() -> ServerConfig {
-        match dotenv::dotenv().ok() {
+        let network_interfaces = list_afinet_netifas();
+        let mut host_ip: String = String::new();
+        match dotenv::from_path(ENV_PATH).ok() {
             Some(_envpath) => {},
             None => {
                 println!("ServerConfig: Error loading env vars - loading default");
@@ -99,11 +104,22 @@ impl ServerConfig {
                                               .collect();
                 let _server_cfg : ServerConfig = ServerConfig {
                     host: String::from("127.0.0.1").to_string(),
-                    port1: 9998_u16,
-                    port2: 9999_u16,
+                    port1: 31500_u16,
+                    port2: 31501_u16,
                     request_methods: req_meth
                 };
             }
+        }
+        if let Ok(network_interfaces) = network_interfaces {
+            for (name, ip) in network_interfaces.iter() {
+                if name == "enp0s3" || name == "eth0" {
+                    host_ip = ip.to_string();
+                    println!("Using network interface: {}:[{}]", name, ip);
+                    break;
+                }
+            }
+        } else {
+            println!("Error getting network interfaces: {:?}", network_interfaces);
         }
         let port1_str: String = dotenv::var("SERVER.PORT1").unwrap();
         let port2_str: String = dotenv::var("SERVER.PORT2").unwrap();
@@ -113,8 +129,9 @@ impl ServerConfig {
         let req_meth: Vec<String> = request_methods.split(",")
                                       .map(str::to_string)
                                       .collect();
+        // host: dotenv::var("SERVER.HOST").unwrap()
         let _server_cfg: ServerConfig = ServerConfig {
-            host: dotenv::var("SERVER.HOST").unwrap(),
+            host: host_ip,
             port1: port1,
             port2: port2,
             request_methods: req_meth
@@ -126,16 +143,16 @@ impl ServerConfig {
 
 impl DbConfig {
     pub fn new_cfg() -> DbConfig {
-        match dotenv::dotenv().ok() {
+        match dotenv::from_path(ENV_PATH).ok() {
             Some(_envpath) => {},
             None => {
                 println!("DbConfig: Error loading env vars: loading default");
                 let _db_cfg : DbConfig = DbConfig {
                     host: String::from("127.0.0.1").to_string(),
                     port: 3306_u16,
-                    user: String::from("user").to_string(),
-                    password: String::from("password").to_string(),
-                    database: String::from("example_database").to_string(),
+                    user: String::from("kubeuser").to_string(),
+                    password: String::from("kubepass").to_string(),
+                    database: String::from("basic").to_string(),
                 };
             }
         }

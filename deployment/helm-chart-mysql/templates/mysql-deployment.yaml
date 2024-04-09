@@ -16,6 +16,9 @@ spec:
       containers:
       - image: rust-mysql:1.0
         name: mysql
+        ports:
+        - containerPort: 3306
+          name: mysql
         env:
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
@@ -32,15 +35,11 @@ spec:
             secretKeyRef:
               name: mysql-creds
               key: mysql-password
-        - name: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DATABASE
           valueFrom:
             secretKeyRef:
               name: mysql-creds
               key: mysql-database
-       volumeMounts:
-        ports:
-        - containerPort: 3306
-          name: mysql
         volumeMounts:
         - name: mysql-persistent-storage
           mountPath: /var/lib/mysql
@@ -48,3 +47,6 @@ spec:
       - name: mysql-persistent-storage
         persistentVolumeClaim:
           claimName: mysql-pvc
+      - name: mysql-creds
+        secret:
+          secretName: mysql-creds
