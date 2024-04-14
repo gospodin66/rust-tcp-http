@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: client
 spec:
-  replicas: 3
+  replicas: {{ .Values.client.replicas }}
   selector:
     matchLabels:
       app: client
@@ -15,19 +15,19 @@ spec:
         app: client
     spec:
       containers:
-      - image: rust-client:1.0
+      - image: {{ .Values.client.image }}
         name: client
         stdin: true 
         tty: true 
-        command: ["/bin/client"]
-        args: ["10.43.208.199", "31500"]
+        command: ["{{ .Values.client.cmd }}"]
+        args: ["{{ .Values.client.conn.server.ip }}", "{{ .Values.client.conn.server.port }}"]
         volumeMounts:
-        - mountPath: /tmp/envfile
+        - mountPath: {{ .Values.client.mounts.env }}
           name: client-env
       volumes:
       - name: client-env
         configMap: 
           name: client-env
           items:
-            - key: .env
-              path: .env
+            - key: {{ .Values.client.envKey }}
+              path: {{ .Values.client.envKey }}

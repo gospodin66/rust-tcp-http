@@ -15,42 +15,40 @@ spec:
     spec:
       initContainers:
       - name: init-server
-        image: busybox:1.28
-        command: ['sh', '-c']
-        args: [
-          "chown -R 10001:10001 /tmp/envfile/.env && chmod 644 /tmp/envfile/.env;  \
-           chown -R 10001:10001 /tmp/html && chmod 664 /tmp/html/*.html;  \
-           ls -ltra /tmp/envfile/.env && ls -ltr /tmp/html;"
+        image: {{ .Values.server.init.image }}
+        command: [
+          {{- range $k,$v := .Values.server.init.cmd }}
+            '{{ $v }}',
+          {{- end }} 
         ]
+        args: ["
+          {{- range $k,$v := .Values.server.init.args }}
+            {{ $v | trim }}
+          {{- end }} 
+        "]
         volumeMounts:
         - name: server-env
-          mountPath: /tmp/envfile
+          mountPath: {{ .Values.server.mounts.env }}
         - name: server-pages
-          mountPath: /tmp/html
-        #- name: server-html
-        #  mountPath: /tmp/html
+          mountPath: {{ .Values.server.mounts.html }}
       containers:
-      - image: rust-server:1.0
+      - image: {{ .Values.server.image }}
         name: server
         stdin: true 
         tty: true 
-        command: ["/bin/server"]
+        command: ["{{ .Values.server.cmd }}"]
         volumeMounts:
         - name: server-env
-          mountPath: /tmp/envfile
+          mountPath: {{ .Values.server.mounts.env }}
         - name: server-pages
-          mountPath: /tmp/html
-        #- name: server-html
-        #  mountPath: /tmp/html
+          mountPath: {{ .Values.server.mounts.html }}
       volumes:
       - name: server-env
         configMap: 
           name: server-env
           items:
-            - key: .env
-              path: .env
+            - key: {{ .Values.server.envKey }}
+              path: {{ .Values.server.envKey }}
       - name: server-pages
         configMap: 
           name: server-pages
-      #- name: server-html
-      #  emptyDir: {}

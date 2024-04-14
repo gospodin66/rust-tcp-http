@@ -10,10 +10,10 @@ spec:
     app: server
   ports:
   - name: main-tcp
-    port: 31500
-    targetPort: 31500
+    port: {{ .Values.server.ports.main }}
+    targetPort: {{ .Values.server.ports.main }}
     protocol: TCP
   - name: failover-tcp
-    port: 31501
-    targetPort: 31501
+    port: {{ .Values.server.ports.failover }}
+    targetPort: {{ .Values.server.ports.failover }}
     protocol: TCP

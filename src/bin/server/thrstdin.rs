@@ -4,7 +4,7 @@ use chrono::Local;
 use crate::server::{cstmfiles, cstmconfig};
 use std::sync::{Mutex, Arc, mpsc};
 use std::sync::mpsc::TryRecvError;
-use std::net::{Shutdown};
+use std::net::Shutdown;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use super::cstmconfig::AssetsConfig;
@@ -72,6 +72,9 @@ pub fn loop_user_stdin(
             break;
         }
         else if response.starts_with("dc:") {
+            /*
+             * format: dc:127.0.0.1:9999
+             */
             // fetch stream by ip:port from streams
             let ip_port = response[3..].split(":").collect::<Vec<_>>();
             let idx_to_remove = dc_node(&streams, ip_port).unwrap();

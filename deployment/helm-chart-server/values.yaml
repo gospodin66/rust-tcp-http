@@ -1,0 +1,20 @@
+server:
+  init:
+    cmd: ['sh', '-c']
+    image: busybox:1.28
+    args:
+      - chown -R 10001:10001 /tmp/envfile/.env;
+      - chmod 644 /tmp/envfile/.env;
+      - chown -R 10001:10001 /tmp/html;
+      - chmod 664 /tmp/html/*.html;
+      - ls -ltra /tmp/envfile/.env;
+      - ls -ltr /tmp/html;
+  cmd: /bin/server
+  image: 127.0.0.1:5000/v2/rust-server:1.0
+  ports:
+    main: 31500
+    failover: 31501
+  mounts:
+    env: /tmp/envfile
+    html: /tmp/html
+  envKey: .env

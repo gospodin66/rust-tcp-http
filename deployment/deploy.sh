@@ -10,6 +10,8 @@ docker save rust-server:1.0 -o rust-server.tar
 docker save rust-client:1.0 -o rust-client.tar
 docker save rust-mysql:1.0 -o rust-mysql.tar
 
+crane push rust-server.tar 127.0.0.1:5000
+
 sudo k3s ctr images import rust-server.tar 
 sudo k3s ctr images import rust-client.tar
 sudo k3s ctr images import rust-mysql.tar

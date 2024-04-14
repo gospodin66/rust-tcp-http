@@ -1,0 +1,5 @@
+mysql:
+  image: 127.0.0.1:5000/v2/rust-mysql:1.0
+  port: 3306
+  volume:
+    path: /var/lib/mysql

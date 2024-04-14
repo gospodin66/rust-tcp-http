@@ -14,10 +14,10 @@ spec:
         app: mysql
     spec:
       containers:
-      - image: rust-mysql:1.0
+      - image: {{ .Values.mysql.image }}
         name: mysql
         ports:
-        - containerPort: 3306
+        - containerPort: {{ .Values.mysql.port }}
           name: mysql
         env:
         - name: MYSQL_ROOT_PASSWORD
@@ -42,7 +42,7 @@ spec:
               key: mysql-database
         volumeMounts:
         - name: mysql-persistent-storage
-          mountPath: /var/lib/mysql
+          mountPath: {{ .Values.mysql.volume.path }}
       volumes:
       - name: mysql-persistent-storage
         persistentVolumeClaim:
