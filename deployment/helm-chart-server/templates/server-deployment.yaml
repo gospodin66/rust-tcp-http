@@ -29,6 +29,8 @@ spec:
         volumeMounts:
         - name: server-env
           mountPath: {{ .Values.server.mounts.env }}
+        - name: server-env-writeable
+          mountPath: {{ .Values.server.mounts.envWriteable }}
         - name: server-pages
           mountPath: {{ .Values.server.mounts.html }}
       containers:
@@ -40,6 +42,8 @@ spec:
         volumeMounts:
         - name: server-env
           mountPath: {{ .Values.server.mounts.env }}
+        - name: server-env-writeable
+          mountPath: {{ .Values.server.mounts.envWriteable }}
         - name: server-pages
           mountPath: {{ .Values.server.mounts.html }}
       volumes:
@@ -49,6 +53,10 @@ spec:
           items:
             - key: {{ .Values.server.envKey }}
               path: {{ .Values.server.envKey }}
+          defaultMode: 0664
       - name: server-pages
         configMap: 
-          name: server-pages
+            name: server-pages
+            defaultMode: 0664
+      - name: server-env-writeable
+        emptyDir: {}

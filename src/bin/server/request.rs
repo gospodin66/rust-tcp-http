@@ -80,7 +80,9 @@ pub fn process_request(request_method: &str, route: &str, routes: &Vec<&str>) ->
         }
         else if route == routes[3] {
             match database::create_tables() {
-                Ok(()) => {},
+                Ok(()) => {
+                    response_data.push_str("Tables created successfuly!");
+                },
                 Err(e) => {
                     println!("SQL Error creating table: {}", e)
                 }

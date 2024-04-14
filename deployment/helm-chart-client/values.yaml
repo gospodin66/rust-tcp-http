@@ -1,9 +1,5 @@
 client:
   cmd: /bin/client
-  conn:
-    server:
-      ip: 10.43.237.153
-      port: 31500
   image: 127.0.0.1:5000/v2/rust-client:1.0
   mounts:
     env: /tmp/envfile

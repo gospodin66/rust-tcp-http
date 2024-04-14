@@ -20,7 +20,7 @@ spec:
         stdin: true 
         tty: true 
         command: ["{{ .Values.client.cmd }}"]
-        args: ["{{ .Values.client.conn.server.ip }}", "{{ .Values.client.conn.server.port }}"]
+        args: ["$(SERVER_TCP_SERVICE_HOST)", $(SERVER_TCP_SERVICE_PORT)]
         volumeMounts:
         - mountPath: {{ .Values.client.mounts.env }}
           name: client-env

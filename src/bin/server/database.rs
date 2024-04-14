@@ -52,7 +52,7 @@ pub fn create_tables() -> Result<(), > {
     /*
     ALTER TABLE users ALTER email_verified_at SET DEFAULT 'N/A';
 
-    insert into roles (type,config,created_at,updated_at) values('Admin','{"privileges": 1}', '2024-04-13 11:18:58', '2024-04-13 11:18:58') values('User','{"privileges": 2}', '2024-04-13 11:18:58', '2024-04-13 11:18:58');
+    INSERT INTO roles (type,config,created_at,updated_at) VALUES ('Admin','{"privileges": 1}', '2024-04-13 11:18:58', '2024-04-13 11:18:58'), ('User','{"privileges": 2}', '2024-04-13 11:18:58', '2024-04-13 11:18:58');
     
     */
     let columns_connected: Vec<String> = vec![
@@ -130,7 +130,33 @@ pub fn create_tables() -> Result<(), > {
             println!("SQL Error creating table: {}", e);
         }
     }
-    Ok(())
+
+    // custom db query - initialization:
+    let mut conn: Conn;
+    match init_db() {
+        Ok(connection) => {
+            conn = connection;
+        },
+        Err(e) => {
+            let errmsg = format!("SQL: Error connecting to db: {}", e);
+            println!("{}", errmsg);
+            return Err(e);
+        }
+    }
+    let mut tx: Transaction = conn.start_transaction(TxOpts::default()).unwrap();
+    let query: &str = "ALTER TABLE users ALTER email_verified_at SET DEFAULT \'N/A\';
+    INSERT INTO roles (type,config,created_at,updated_at) VALUES (\'Admin\',\'{\"privileges\": 1}\', \'2024-04-13 11:18:58\', \'2024-04-13 11:18:58\'), (\'User\',\'{\"privileges\": 2}\', \'2024-04-13 11:18:58\', \'2024-04-13 11:18:58\');";
+    println!("Running initialization query..");
+    match tx.query_drop(query) {
+        Ok(_) => {
+            return Ok(())
+        },
+        Err(e) => {
+            tx.rollback().unwrap();
+            return Err(e)
+        }
+    }
+
 }
 
 pub fn create_table(table: String, columns: Vec<String>) -> Result<(), > {
@@ -154,8 +180,12 @@ pub fn create_table(table: String, columns: Vec<String>) -> Result<(), > {
     for (i, column) in columns.iter().enumerate() {
         if column == "id" {
             column_meta = format!("{} BIGINT AUTO_INCREMENT PRIMARY KEY", column);
-        } else if column == "created_at" || column == "updated_at" {
-            column_meta = format!("{} TIMESTAMP NOT NULL", column);
+        } 
+        else if column.contains("_id") {
+            column_meta = format!("{} BIGINT", column);
+        }        
+        else if column == "created_at" || column == "updated_at" {
+            column_meta = format!("{} TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP()", column);
         } else {
             column_meta = format!("{} VARCHAR(255) NOT NULL", column);
         }

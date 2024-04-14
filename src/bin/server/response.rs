@@ -98,7 +98,7 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,Vec<&str>,String,Strin
     } else if req_route == routes[2] {
         (res_ok, format!("{}tokens.html", assets_cfg.html_base_path))
     } else {
-        (res_ok, format!("{}404.html", assets_cfg.html_base_path))
+        (res_ok, format!("{}notfound.html", assets_cfg.html_base_path))
     };
 
     Ok((req_method, req_route, routes, status_line, view_file))
