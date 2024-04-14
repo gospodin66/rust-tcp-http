@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: client
 spec:
+  replicas: 3
   selector:
     matchLabels:
       app: client
@@ -19,7 +20,7 @@ spec:
         stdin: true 
         tty: true 
         command: ["/bin/client"]
-        args: ["10.42.0.98", "31500"]
+        args: ["10.43.208.199", "31500"]
         volumeMounts:
         - mountPath: /tmp/envfile
           name: client-env

@@ -7,7 +7,7 @@ metadata:
   namespace: custom-dev
 spec:
   selector:
-    app.kubernetes.io/name: server
+    app: server
   ports:
   - name: main-tcp
     port: 31500
