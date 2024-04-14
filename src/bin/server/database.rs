@@ -47,6 +47,91 @@ impl Database {
 }
 
 
+pub fn create_tables() -> Result<(), > {
+
+    /*
+    ALTER TABLE users ALTER email_verified_at SET DEFAULT 'N/A';
+
+    insert into roles (type,config,created_at,updated_at) values('Admin','{"privileges": 1}', '2024-04-13 11:18:58', '2024-04-13 11:18:58') values('User','{"privileges": 2}', '2024-04-13 11:18:58', '2024-04-13 11:18:58');
+    
+    */
+    let columns_connected: Vec<String> = vec![
+        "id".to_string(),
+        "user_id".to_string(),
+        "ip".to_string(),
+        "port".to_string(),
+        "proxy".to_string(),
+        "note".to_string(),
+        "blacklist".to_string(),              
+        "created_at".to_string(),
+        "updated_at".to_string(),
+        "test".to_string(),        
+    ];
+    let columns_roles: Vec<String> = vec![
+        "id".to_string(),
+        "type".to_string(),
+        "config".to_string(),
+        "created_at".to_string(),
+        "updated_at".to_string(),        
+    ];
+    let columns_users: Vec<String> = vec![
+        "id".to_string(),
+        "role_id".to_string(),
+        "username".to_string(),
+        "email".to_string(),
+        "password".to_string(),
+        "config".to_string(),
+        "active".to_string(),
+        "remember_token".to_string(),
+        "avatar".to_string(),
+        "email_verified_at".to_string(),
+        "created_at".to_string(),
+        "updated_at".to_string(),
+    ];
+    let columns_tokens: Vec<String> = vec![
+        "id".to_string(),
+        "user_id".to_string(),
+        "token_type".to_string(),
+        "access_token".to_string(),
+        "refresh_token".to_string(),
+        "token_expire".to_string(),
+        "created_at".to_string(),
+        "updated_at".to_string(),        
+    ];
+    match create_table(String::from("users"), columns_users) {
+        Ok(()) => {
+            println!("SQL Table users created successfuly.");
+        },
+        Err(e) => {
+            println!("SQL Error creating table: {}", e);
+        }
+    }
+    match create_table(String::from("tokens"), columns_tokens) {
+        Ok(()) => {
+            println!("SQL Table tokens created successfuly.");
+        },
+        Err(e) => {
+            println!("SQL Error creating table: {}", e);
+        }
+    }
+    match create_table(String::from("roles"), columns_roles) {
+        Ok(()) => {
+            println!("SQL Table roles created successfuly.");
+        },
+        Err(e) => {
+            println!("SQL Error creating table: {}", e);
+        }
+    }
+    match create_table(String::from("connected"), columns_connected) {
+        Ok(()) => {
+            println!("SQL Table connected created successfuly.");
+        },
+        Err(e) => {
+            println!("SQL Error creating table: {}", e);
+        }
+    }
+    Ok(())
+}
 
 pub fn create_table(table: String, columns: Vec<String>) -> Result<(), > {
 

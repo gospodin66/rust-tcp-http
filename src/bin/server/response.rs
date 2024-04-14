@@ -1,5 +1,5 @@
 use std::fs;
-use std::net::{TcpStream};
+use std::net::TcpStream;
 use std::io::Write;
 use chrono::Local;
 //use url::{Url, ParseError};
@@ -141,6 +141,11 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
 
     // if error is reached before => don't read html page
     if contents_all.is_empty() {
+
+
+        println!("{:?}", view_file);
+
+
         match fs::read_to_string(view_file) {
             Ok(contents) => {
                 contents_all = format!("{}{}", contents, response_data);

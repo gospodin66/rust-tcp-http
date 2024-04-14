@@ -16,14 +16,19 @@ spec:
       initContainers:
       - name: init-server
         image: busybox:1.28
-        command: [
-          'sh', 
-          '-c', 
-          "set -ex; ls -ltra /tmp/envfile/.env;"
+        command: ['sh', '-c']
+        args: [
+          "chown -R 10001:10001 /tmp/envfile/.env && chmod 644 /tmp/envfile/.env;  \
+           chown -R 10001:10001 /tmp/html && chmod 664 /tmp/html/*.html;  \
+           ls -ltra /tmp/envfile/.env && ls -ltr /tmp/html;"
         ]
         volumeMounts:
         - name: server-env
           mountPath: /tmp/envfile
+        - name: server-pages
+          mountPath: /tmp/html
+        #- name: server-html
+        #  mountPath: /tmp/html
       containers:
       - image: rust-server:1.0
         name: server
@@ -33,6 +38,10 @@ spec:
         volumeMounts:
         - name: server-env
           mountPath: /tmp/envfile
+        - name: server-pages
+          mountPath: /tmp/html
+        #- name: server-html
+        #  mountPath: /tmp/html
       volumes:
       - name: server-env
         configMap: 
@@ -40,3 +49,8 @@ spec:
           items:
             - key: .env
               path: .env
+      - name: server-pages
+        configMap: 
+          name: server-pages
+      #- name: server-html
+      #  emptyDir: {}

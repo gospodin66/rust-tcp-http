@@ -34,7 +34,10 @@ pub struct AppConfig {
 }
 
 
+
 const ENV_PATH: &str = "/tmp/envfile/.env";
+//const ENV_PATH: &str = "/home/cheki/workspace/rust-tcp-http/.env";
+
 
 #[allow(dead_code)]
 impl AppConfig {

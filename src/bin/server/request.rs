@@ -79,15 +79,7 @@ pub fn process_request(request_method: &str, route: &str, routes: &Vec<&str>) ->
             response_data = String::from("Default route - default response :3")
         }
         else if route == routes[3] {
-            let table = String::from("test_table");
-            let columns: Vec<String> = vec![
-                "id".to_string(), 
-                "name".to_string(), 
-                "description".to_string(), 
-                "created_at".to_string(), 
-                "updated_at".to_string()
-            ];
-            match database::create_table(table, columns) {
+            match database::create_tables() {
                 Ok(()) => {},
                 Err(e) => {
                     println!("SQL Error creating table: {}", e)

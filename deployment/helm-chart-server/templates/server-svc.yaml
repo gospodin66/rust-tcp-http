@@ -12,11 +12,8 @@ spec:
   - name: main-tcp
     port: 31500
     targetPort: 31500
-    nodePort: 31500
     protocol: TCP
   - name: failover-tcp
     port: 31501
     targetPort: 31501
-    nodePort: 31501
     protocol: TCP
-  type: NodePort
