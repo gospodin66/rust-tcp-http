@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      initContainers:
+      - name: init-nginx
+        image: busybox:1.28
+        command: [
+          'sh',
+          '-c'
+        ]
+        args: ["
+          set -x;
+          echo \"Initializing nginx..\";
+          mkdir -p /etc/nginx/sites-available;
+          mkdir -p /etc/nginx/sites-enabled;
+          cp /tmp/nginx/*.conf /etc/nginx;
+          ls -ltr /etc/nginx;
+          cp /etc/nginx/reverse-proxy.conf /etc/nginx/sites-available/;
+          ln -s /etc/nginx/sites-available/reverse-proxy.conf /etc/nginx/sites-enabled/reverse-proxy.conf;
+        "]
+        volumeMounts:
+        - name: nginx-conf
+          mountPath: /tmp/nginx
+        - name: conf
+          mountPath: /etc/nginx
+      containers:
+      - name: nginx
+        image: 127.0.0.1:5000/v2/rust-nginx:1.0
+        ports:
+          - containerPort: 80
+        volumeMounts:
+        - name: nginx-conf
+          mountPath: /tmp/nginx
+        - name: conf
+          mountPath: /etc/nginx
+      volumes:
+      - name: nginx-conf
+        configMap: 
+          name: nginx-conf
+          defaultMode: 0664
+      - name: conf
+        emptyDir: {}

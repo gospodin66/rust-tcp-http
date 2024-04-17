@@ -31,7 +31,7 @@ fn fetch_get_routes() -> Vec<&'static str> {
         "/",
         "/users",
         "/tokens",
-        "/table"
+        "/tables"
     ]
 }
 fn fetch_post_routes() -> Vec<&'static str> {
@@ -39,7 +39,7 @@ fn fetch_post_routes() -> Vec<&'static str> {
         "/",
         "/users",
         "/tokens",
-        "/table"
+        "/tables"
     ]
 }
 fn fetch_empty_routes() -> Vec<&'static str> {

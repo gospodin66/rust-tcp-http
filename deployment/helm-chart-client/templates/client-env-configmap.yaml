@@ -1,7 +1,6 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: custom-dev
   name: client-env
   labels:
     app: client-env
@@ -11,7 +10,7 @@ data:
     SERVER.PORT2=31501
     SERVER.HTTP_PROTOCOL=HTTP/1.1
     SERVER.REQUEST_METHODS=GET,POST,OPTIONS,HEAD
-    DATABASE.HOST=10.43.39.140
+    DATABASE.HOST=mysql.default.svc.cluster.local
     DATABASE.PORT=3306
     DATABASE.USER=kubeuser
     DATABASE.PASSWORD=kubepass
