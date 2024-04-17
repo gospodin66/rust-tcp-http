@@ -133,11 +133,12 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), String> {
             );
             print!("{}", &msg);
             cstmfiles::f_write(&fpath, msg).unwrap();
-            /*
-             * if HTTP request
-             */
+
             match request::validate_http_request(&data) {
                 Ok(_http_request) => {
+                   /*
+                    * HTTP request
+                    */
                     println!(">>> {}: Handling HTTP response {}:{}\n>>>\n", IDENTIFICATOR, &ip, &port);
                     match response::write_http_response(&stream, &data) {
                         Ok(()) => {}, 
@@ -162,6 +163,14 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), String> {
             return Err(format!("{}: Error recieving data: {}", IDENTIFICATOR, e));
         }
     }
+    
+    
+    /*
+     * TODO: implement connection liveness test mechanism
+     */
+    
+    
+    
     Ok(())
 }
 

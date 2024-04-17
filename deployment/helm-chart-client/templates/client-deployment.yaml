@@ -21,13 +21,4 @@ spec:
         tty: true 
         command: ["{{ .Values.client.cmd }}"]
         args: ["$(SERVER_SERVICE_HOST)", $(SERVER_SERVICE_PORT)]
-        volumeMounts:
-        - mountPath: {{ .Values.client.mounts.env }}
-          name: client-env
-      volumes:
-      - name: client-env
-        configMap: 
-          name: client-env
-          items:
-            - key: {{ .Values.client.envKey }}
-              path: {{ .Values.client.envKey }}
+        
