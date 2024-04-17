@@ -59,15 +59,17 @@ pub struct Worker {
 
 impl Worker {
     pub fn new(id: usize, rx: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
-        let thr: JoinHandle<()> = thread::Builder::new()
-                                    .name(String::from("thr-worker"))
-                                    .spawn(move || loop {
-                                        // retrieve job from channel
-                                        let job: Box<dyn FnOnce() + Send> = rx.lock().unwrap().recv().unwrap();
-                                        println!("-----------------------------------------");
-                                        println!("{}: Worker {} got a new job!", IDENTIFICATOR, id);
-                                        job();
-                                    }).unwrap();
+        let thr: JoinHandle<()> = 
+            thread::Builder
+                ::new()
+                .name(String::from("thr-worker"))
+                .spawn(move || loop {
+                    // retrieve job from channel
+                    let job: Box<dyn FnOnce() + Send> = rx.lock().unwrap().recv().unwrap();
+                    println!("-----------------------------------------");
+                    println!("{}: Worker {} got a new job!", IDENTIFICATOR, id);
+                    job();
+                }).unwrap();
         Worker {
             id,
             thread: thr,
@@ -80,25 +82,46 @@ pub fn handle_in_threadpool(
     listener: &TcpListener,
     thrstdin_thrmain_channel_tx: Arc<Mutex<mpsc::Sender<TcpStream>>>,
 ) -> Result<(), String> {
-
     let pool: ThreadPool = ThreadPool::new(THREAD_LIMIT);
-
     for s in listener.incoming() {
         match s {
             Ok(stream) => {
-                let stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());
-                /*
-                 * send new connection to thread-stdin
-                 */
-                match thrstdin_thrmain_channel_tx.lock().unwrap().send(stream) {
-                    Ok(()) => println!("threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
-                    Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
+                let ip: IpAddr = stream.peer_addr().unwrap().ip();
+                let port: u16 = stream.peer_addr().unwrap().port();
+                let mut stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());                
+                let mut buffer: [u8; 4096] = [0; 4096];
+                let mut _data = String::new();
+                println!("\nReceived connection from {}:{}", ip, port);
+                match stream_clone.read(&mut buffer) {
+                    Ok(bytes) => {
+                        let recv: Cow<str> = String::from_utf8_lossy(&buffer[..]);
+                        let data: &str = recv.trim_matches(char::from(0));
+                        _data = String::from(data);
+                        println!("Connection: bytes: {}b; data: {:?}", bytes, data);
+                        match request::validate_http_request(&data) {
+                            Ok(_http_request) => {
+                                println!("{}: HTTP connection - Skipping sending to thrstdin", IDENTIFICATOR);
+                            }, 
+                            _ => {
+                                /*
+                                * send new connection to thread-stdin
+                                */
+                                match thrstdin_thrmain_channel_tx.lock().unwrap().send(stream) {
+                                    Ok(()) => println!("threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
+                                    Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        return Err(format!("{}: Error recieving data: {}", IDENTIFICATOR, e));
+                    }
                 }
                 /*
                  * handle connection
                  */
                 pool.execute(move || {
-                    match handle_connection(stream_clone) {
+                    match handle_connection(stream_clone, _data) {
                         Ok(()) => {},
                         Err(e) => println!("{}: Error on connection handler: {}", IDENTIFICATOR, e)
                     }
@@ -113,64 +136,37 @@ pub fn handle_in_threadpool(
 }
 
 
-fn handle_connection(mut stream: TcpStream) -> Result<(), String> {
-    let mut buffer = [0; 4096];
-    let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
-    let fpath: String = String::from(assets_cfg.log_dir+"/"+&assets_cfg.log_path);
-    match stream.read(&mut buffer) {
-        Ok(bytes) => {
-            let recv: Cow<str> = String::from_utf8_lossy(&buffer[..]);
-            let data: &str = recv.trim_matches(char::from(0));
-            let ip: IpAddr = stream.peer_addr().unwrap().ip();
-            let port: u16 = stream.peer_addr().unwrap().port();
-            let msg: String = format!(
-                "[{}] -- [{}:{}] -- [{} bytes] [INIT-MSG]: {}\n",
-                Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                ip,
-                port,
-                bytes,
-                &data
-            );
-            print!("{}", &msg);
-            cstmfiles::f_write(&fpath, msg).unwrap();
 
-            match request::validate_http_request(&data) {
-                Ok(_http_request) => {
-                   /*
-                    * HTTP request
-                    */
-                    println!(">>> {}: Handling HTTP response {}:{}\n>>>\n", IDENTIFICATOR, &ip, &port);
-                    match response::write_http_response(&stream, &data) {
-                        Ok(()) => {}, 
-                        Err(e) => println!("{}: Error sending html response to {}:{}: {}", IDENTIFICATOR, ip, port, e)
-                    }
-                    println!("\n<<<");                    
-                }, 
-                _ => {
-                    /*
-                     * default TCP request
-                     */
-                    println!(">>> {}: Handling TCP connection {}:{}", IDENTIFICATOR, &ip, &port);
-                    match loop_connection(&stream) {
-                        Ok(()) => {},
-                        Err(e) => println!("{}: Error handling tcp connection to {}:{}: {}", IDENTIFICATOR, ip, port, e)
-                    }
-                    
-                }
+fn handle_connection(stream: TcpStream, data: String) -> Result<(), String> {
+    let ip: IpAddr = stream.peer_addr().unwrap().ip();
+    let port: u16 = stream.peer_addr().unwrap().port();
+    match request::validate_http_request(&data) {
+        Ok(_http_request) => {
+           /*
+            * HTTP request
+            */
+            println!(">>> {}: Handling HTTP response {}:{}\n>>>\n", IDENTIFICATOR, &ip, &port);
+            match response::write_http_response(&stream, &data) {
+                Ok(()) => {}, 
+                Err(e) => println!("{}: Error sending html response to {}:{}: {}", IDENTIFICATOR, ip, port, e)
             }
-        },
-        Err(e) => {
-            return Err(format!("{}: Error recieving data: {}", IDENTIFICATOR, e));
+            println!("\n<<<");
+
+            // disconnect HTTP connection after serving content
+            println!("Shutting down HTTP connection..");
+            stream.shutdown(Shutdown::Both).expect("shutdown call failed");
+        }, 
+        _ => {
+            /*
+             * default TCP request
+             */
+            println!(">>> {}: Handling TCP connection {}:{}", IDENTIFICATOR, &ip, &port);
+            match loop_connection(&stream) {
+                Ok(()) => {},
+                Err(e) => println!("{}: Error handling tcp connection to {}:{}: {}", IDENTIFICATOR, ip, port, e)
+            }
         }
     }
-    
-    
-    /*
-     * TODO: implement connection liveness test mechanism
-     */
-    
-    
-    
     Ok(())
 }
 
@@ -186,8 +182,6 @@ fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
             Ok(bytes) => {
                 if bytes == 0 {
                     println!("tcp-handler: Empty line");
-                    // raises error if dc in server2server communication
-                    //stream.shutdown(Shutdown::Both).expect("Error closing socket");
                     break;
                 }
                 let recv = String::from_utf8_lossy(&buffer[..]);
@@ -201,7 +195,7 @@ fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
                     &data
                 );
                 print!("{}", &msg);
-                cstmfiles::f_write(&fpath, msg).unwrap();
+                cstmfiles::f_write(&fpath, msg).expect("Error writing file.");
             },
             Err(e) => {
                 println!("tcp-handler: Error when reading line: {}", e);

@@ -33,7 +33,7 @@ docker push 127.0.0.1:5000/v2/rust-nginx:1.0
 sudo rm -rf /var/lib/docker/volumes/registry-storage/_data/docker/registry/v2/repositories/v2/rust-server
 
 # run garbage collect
-docker exec -it private-registry bin/registry garbage-collect  /etc/docker/registry/config.yml
+docker exec -it private-registry bin/registry garbage-collect /etc/docker/registry/config.yml
 
 
 helm upgrade --install server helm-chart-server

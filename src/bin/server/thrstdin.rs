@@ -16,7 +16,6 @@ const IDENTIFICATOR: &str = "thrstdin";
 pub fn init_thread(
     thrstdin_thrmain_channel_rx: Arc<Mutex<mpsc::Receiver<TcpStream>>>
 ) -> Result<(), String> {
-
     match loop_user_stdin(thrstdin_thrmain_channel_rx) {
         Ok(()) => { Ok(()) }
         Err(e) => {
@@ -158,19 +157,16 @@ fn send_response(
         Ok(ip) => ip.ip().to_string(),
         Err(e) => {
             println!("{}: Error fetching client IP address: {}", IDENTIFICATOR, e);
-            String::from("")
+            return 1
         }
     };
     let port = match socket.peer_addr() {
         Ok(port) => port.port(),
         Err(e) => {
             println!("{}: Error fetching client port: {}", IDENTIFICATOR, e);
-            0
+            return 1
         }
     };
-    if ip == String::from("") || port == 0 {
-        return 1
-    }
 
     match socket.write(response.as_bytes()) {
         Ok(bytes) => {
@@ -224,7 +220,6 @@ fn dc_node(streams: &Vec<TcpStream>, ip_port: Vec<&str>) -> Result<usize, String
 
 fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) -> Result<(), String>{
     let mut file = File::open(file_path).expect("Error opening file");
-
     for (_, mut s) in streams.iter().enumerate() {
         if s.peer_addr().unwrap().ip().to_string() == ip_port[0] 
         && s.peer_addr().unwrap().port() == ip_port[1].parse::<u16>().unwrap()
@@ -264,7 +259,6 @@ fn process_stdin() -> String {
 fn print_connected(streams: &Vec<TcpStream>) {
     println!("\nConnected streams:");
     for (i, s) in streams.iter().enumerate() {
-
         let ip: String = match s.peer_addr() {
             Ok(ip) => ip.ip().to_string(),
             Err(e) => {
@@ -279,13 +273,11 @@ fn print_connected(streams: &Vec<TcpStream>) {
                 0
             }
         };
-
         if ip == String::from("") || port == 0 {
             println!("Client [{}-{}:{}] not connected?", i, ip, port);
         } else {
             println!("{} -- {}:{}", i, ip, port);
         }
-
     }
     println!("");
 }

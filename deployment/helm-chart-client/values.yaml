@@ -1,4 +1,4 @@
 client:
   cmd: /bin/client
   image: 127.0.0.1:5000/v2/rust-client:1.0
-  replicas: 5
+  replicas: 3

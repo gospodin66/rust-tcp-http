@@ -65,7 +65,6 @@ impl BaseConfig {
         let _base_cfg : BaseConfig = BaseConfig {
             http_protocol: dotenv::var("SERVER.HTTP_PROTOCOL").unwrap()
         };
-
         _base_cfg
     }
 }
@@ -88,7 +87,6 @@ impl AssetsConfig {
             log_dir: dotenv::var("APP.LOG_DIR").unwrap(),
             log_path: dotenv::var("APP.LOG_PATH").unwrap(),
         };
-
         _assets_cfg
     }
 }
@@ -139,8 +137,7 @@ impl ServerConfig {
             port2: port2,
             request_methods: req_meth
         };
-        
-        return _server_cfg
+        _server_cfg
     }
 }
 
@@ -168,7 +165,6 @@ impl DbConfig {
             password: dotenv::var("DATABASE.PASSWORD").unwrap(),
             database: dotenv::var("DATABASE.DATABASE").unwrap(),
         };
-
         _db_cfg
     }
 }
