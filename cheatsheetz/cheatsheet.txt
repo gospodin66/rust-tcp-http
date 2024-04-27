@@ -1,0 +1,17 @@
+# create self-signed cert
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout server.default.svc.cluster.local.key \
+    -out server.default.svc.cluster.local.crt \
+    -subj "/CN=server.default.svc.cluster.local/O=server.default.svc.cluster.local" -addext "subjectAltName = DNS:server.default.svc.cluster.local"
+
+openssl dhparam -out dhparam.pem 2048
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout nginx.default.svc.cluster.local.key \
+    -out nginx.default.svc.cluster.local.crt \
+    -subj "/CN=nginx.default.svc.cluster.local/O=nginx.default.svc.cluster.local" -addext "subjectAltName = DNS:nginx.default.svc.cluster.local"
+
+# convert b64 and add to secret
+cat server.default.svc.cluster.local.key | base64 -w 0
+cat server.default.svc.cluster.local.crt | base64 -w 0
+cat dhparam.pem | base64 -w 0
