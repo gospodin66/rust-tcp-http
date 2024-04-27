@@ -11,23 +11,52 @@ data:
         server server.default.svc.cluster.local:31500;
     }
     server {
-        listen 80 default_server;
+      server_name _;
+      listen 80;
+      return 301 https://$host$request_uri;
+    }
+    server {
+        listen 443 ssl default_server;
         server_name _;
 
         resolver kube-dns.kube-system.svc.cluster.local valid=300s;
         resolver_timeout 5s;
 
-        #include /etc/nginx/ssl-params.conf;
+        ssl_certificate /etc/nginx/ssl/server.default.svc.cluster.local.crt;
+        ssl_certificate_key /etc/nginx/ssl/server.default.svc.cluster.local.key;
+        ssl_dhparam /etc/nginx/ssl/dhparam.pem;
+        #ssl_verify_client optional;
+        #ssl_client_certificate /etc/nginx/ssl/nginx.default.svc.cluster.local.crt;
+
+        include /etc/nginx/ssl-params.conf;
         include /etc/nginx/proxy-params.conf;
 
-        #ssl_certificate "/etc/ssl/certs/nginx/server.default.svc.cluster.local.crt;"
-        #ssl_certificate_key "/etc/ssl/certs/nginx/server.default.svc.cluster.local.key;"
+        access_log "/var/log/nginx/server.default.svc.cluster.local-access.log";
+        error_log "/var/log/nginx/server.default.svc.cluster.local-error.log";
 
-        #access_log "/var/log/nginx/server.default.svc.cluster.local-access.log;"
-        #error_log "/var/log/nginx/server.default.svc.cluster.local-error.log;"
-
-        sendfile off;
+        sendfile on;
         keepalive_timeout 60;
+
+        proxy_ssl_certificate /etc/nginx/nginx.default.svc.cluster.local.crt;
+        proxy_ssl_certificate_key /etc/nginx/nginx.default.svc.cluster.local.key;
+        proxy_ssl_trusted_certificate /etc/nginx/trusted_ca_cert.crt;
+        proxy_ssl_verify on;
+        proxy_ssl_verify_depth 2;
+        proxy_ssl_session_reuse on;
+
+        location ~ ^/users/(.*)$ {
+            auth_basic "Restricted Access Only";
+            auth_basic_user_file /etc/reverseproxy/htpasswd;
+            rewrite ^/users/(.*)$ /$1 break;
+            proxy_pass http://rust-server;
+        }
+
+        location ~ ^/tokens/(.*)$ {
+            auth_basic "Restricted Access Only";
+            auth_basic_user_file /etc/reverseproxy/htpasswd;
+            rewrite ^/tokens/(.*)$ /$1 break;
+            proxy_pass http://rust-server;
+        }
 
         location / {
             proxy_pass http://rust-server;
@@ -45,16 +74,16 @@ data:
             log_not_found off;
         }
 
-        location ~ /\. {
-            deny all;
-        }
-
         location /nginx_status {
             stub_status;
             access_log off;
             allow 127.0.0.1;
             allow 10.42.0.0/16;
             allow 10.43.0.0/16;
+            deny all;
+        }
+
+        location ~ /\. {
             deny all;
         }
     }
@@ -153,13 +182,11 @@ data:
     proxy_send_timeout 60;
     proxy_read_timeout 60;
     proxy_buffers 32 4k;
-
     client_max_body_size 10m;
     client_body_buffer_size 128k;
   ssl-params.conf: |
     ssl_protocols TLSv1.3;
     ssl_prefer_server_ciphers on;
-    ssl_dhparam /etc/ssl/certs/dhparam.pem;
     ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
     ssl_session_timeout 10m;
     ssl_session_cache shared:SSL:10m;

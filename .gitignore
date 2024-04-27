@@ -5,3 +5,5 @@
 .vscode/
 log/
 rust-*.tar
+cert/
+cheatsheetz/

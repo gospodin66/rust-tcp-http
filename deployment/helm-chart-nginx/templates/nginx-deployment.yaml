@@ -25,25 +25,40 @@ spec:
           mkdir -p /etc/nginx/sites-available;
           mkdir -p /etc/nginx/sites-enabled;
           cp /tmp/nginx/*.conf /etc/nginx;
-          ls -ltr /etc/nginx;
           cp /etc/nginx/reverse-proxy.conf /etc/nginx/sites-available/;
           ln -s /etc/nginx/sites-available/reverse-proxy.conf /etc/nginx/sites-enabled/reverse-proxy.conf;
+          ls -ltr /etc/nginx/*;
         "]
         volumeMounts:
         - name: nginx-conf
           mountPath: /tmp/nginx
         - name: conf
           mountPath: /etc/nginx
+        - name: ssl-cert
+          mountPath: /etc/nginx/ssl
+          readOnly: true
+        - name: htpasswd
+          mountPath: /etc/reverseproxy
+          readOnly: true
       containers:
       - name: nginx
         image: 127.0.0.1:5000/v2/rust-nginx:1.0
         ports:
-          - containerPort: 80
+          - name: http
+            containerPort: 80
+          - name: https
+            containerPort: 443
         volumeMounts:
         - name: nginx-conf
           mountPath: /tmp/nginx
         - name: conf
           mountPath: /etc/nginx
+        - name: ssl-cert
+          mountPath: /etc/nginx/ssl
+          readOnly: true
+        - name: htpasswd
+          mountPath: /etc/reverseproxy
+          readOnly: true
       volumes:
       - name: nginx-conf
         configMap: 
@@ -51,3 +66,12 @@ spec:
           defaultMode: 0664
       - name: conf
         emptyDir: {}
+      - name: ssl-cert
+        secret:
+          secretName: ssl-cert
+      - name: htpasswd
+        configMap:
+          name: htpasswd
+          items:
+          - key: htpasswd
+            path: htpasswd
