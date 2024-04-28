@@ -2,24 +2,24 @@
 cargo build --bin rust-tcp-http
 cargo build --bin client
 
-docker build -t rust-server:1.0 .. -f DockerfileServer && docker tag rust-server:1.0 127.0.0.1:5000/v2/rust-server:1.0
-docker build -t rust-nginx:1.0 .. -f DockerfileNginx && docker tag rust-nginx:1.0 127.0.0.1:5000/v2/rust-nginx:1.0
-docker build -t rust-client:1.0 .. -f DockerfileClient
-docker build -t rust-mysql:1.0 .. -f DockerfileMysql 
+docker build -t rust-server:1.1 .. -f DockerfileServer 
+docker build -t rust-nginx:1.1 .. -f DockerfileNginx 
+docker build -t rust-client:1.1 .. -f DockerfileClient
+docker build -t rust-mysql:1.1 .. -f DockerfileMysql 
 
+docker tag rust-server:1.1 127.0.0.1:5000/v2/rust-server:1.1
+docker tag rust-mysql:1.1 127.0.0.1:5000/v2/rust-mysql:1.1
+docker tag rust-client:1.1 127.0.0.1:5000/v2/rust-client:1.1
+docker tag rust-nginx:1.1 127.0.0.1:5000/v2/rust-nginx:1.1
 
-docker tag rust-mysql:1.0 127.0.0.1:5000/v2/rust-mysql:1.0
-docker tag rust-client:1.0 127.0.0.1:5000/v2/rust-client:1.0
+docker push 127.0.0.1:5000/v2/rust-server:1.1
+docker push 127.0.0.1:5000/v2/rust-mysql:1.1
+docker push 127.0.0.1:5000/v2/rust-client:1.1
+docker push 127.0.0.1:5000/v2/rust-nginx:1.1
 
-
-docker push 127.0.0.1:5000/v2/rust-server:1.0
-docker push 127.0.0.1:5000/v2/rust-mysql:1.0
-docker push 127.0.0.1:5000/v2/rust-client:1.0
-docker push 127.0.0.1:5000/v2/rust-nginx:1.0
-
-#docker save rust-server:1.0 -o rust-server.tar 
-#docker save rust-client:1.0 -o rust-client.tar
-#docker save rust-mysql:1.0 -o rust-mysql.tar
+#docker save rust-server:1.1 -o rust-server.tar 
+#docker save rust-client:1.1 -o rust-client.tar
+#docker save rust-mysql:1.1 -o rust-mysql.tar
 
 #crane push rust-server.tar 127.0.0.1:5000
 

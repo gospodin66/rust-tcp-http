@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::net::TcpStream;
 use std::io::Write;
@@ -7,6 +8,7 @@ use chrono::Local;
 use crate::server::cstmfiles;
 use crate::server::cstmconfig::{AssetsConfig, ServerConfig, BaseConfig};
 use crate::server::headers;
+use crate::server::database;
 
 fn validate_request_method(meth: &str) -> Result<(), String> {
     let server_config: ServerConfig = ServerConfig::new_cfg();
@@ -71,7 +73,7 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,Vec<&str>,String,Strin
      * use 1st tuple val of buffer, drop the rest as
      * req_method|route|http_proto are always first in HTTP request
      */
-    match crate::server::request::validate_http_request(&buffer) {
+    match validate_http_request(&buffer) {
         Ok(http_request_parsed) => {
             http_req = http_request_parsed;
         },
@@ -105,6 +107,20 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,Vec<&str>,String,Strin
 }
 
 
+pub fn validate_http_request(buffer: &str) -> Result<Vec<&str>, String> {
+    match buffer.split_once("\r\n") {
+        Some(httprequest) => {
+            let http_req : Vec<&str> = httprequest.0.split(' ').collect();
+            Ok(http_req)
+        }, 
+        None => {
+            // ???????
+            let errmsg: &str = "request: Input does not consist of any newlines - not a HTTP request - skipping..";
+            return Err(String::from(errmsg))
+        }
+    }
+}
+
 pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), String> {
     let mut response_data: String = String::new();
     let mut response: String = String::new();
@@ -127,7 +143,7 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
         }
     }
 
-    match crate::server::request::process_request(&req_method, &route, &routes) {
+    match process_request(&req_method, &route, &routes, &buffer) {
         Ok(res_data) => {
             response_data = res_data;
         },
@@ -193,4 +209,117 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
         }
     }
     Ok(())
+}
+
+
+
+pub fn parse_request_parameters(buffer: &str) -> HashMap<&str, &str> {
+
+    let lines = buffer.split("\r\n").collect::<Vec<&str>>();
+
+    match lines.last() {
+        Some(element) => {
+            let req_params = element.split('&').collect::<Vec<&str>>();
+            let mut params = std::collections::HashMap::new();
+            for param in req_params.iter() {
+                let k_v = param.split_once('=').unwrap();
+                params.insert(k_v.0, k_v.1);
+            }
+            params
+        },        
+        None => std::collections::HashMap::new()
+    }
+}
+
+
+
+
+pub fn process_request(request_method: &str, route: &str, routes: &Vec<&str>, buffer: &str) -> Result<String, String>{
+    let mut response_data : String = String::new();
+    // SELECT on GET | INSERT on POST
+    if request_method == "POST" {
+
+
+        let params = parse_request_parameters(&buffer);
+        println!("\n\nDEBUG: {:?}\n\n", params);
+
+        
+        if route == routes[1] {
+            match database::User::create_users(params) {
+                Ok(()) => {},
+                Err(e) => {
+                    let errmsg: String = format!("request: Error inserting users: {}", e);
+                    println!("{}", &errmsg);
+                    return Err(errmsg);
+                }
+            }
+        }
+        else if route == routes[2] {
+            match database::Token::create_tokens(params) {
+                Ok(()) => {},
+                Err(e) => {
+                    let errmsg: String = format!("request: Error inserting tokens: {}", e);
+                    println!("{}", &errmsg);
+                    return Err(errmsg);
+                }
+            }
+        }
+        else if route == routes[0] { /*** (default route '/') */
+            response_data = String::from("Default route - default response :3")
+        }
+        else if route == routes[3] {
+            match database::create_tables() {
+                Ok(()) => {
+                    response_data.push_str("Tables created successfuly!");
+                },
+                Err(e) => {
+                    println!("SQL Error creating table: {}", e)
+                }
+            }
+        }
+        else {
+            return Err(String::from(format!("request: Invalid route {}", route)))
+        }
+    }
+    else if request_method == "GET" {
+        if route == routes[1] {
+            match database::User::select_all() {
+                Ok(u) => {
+                    let mut usersstr: String = String::new();
+                    for user in u.iter() {
+                        usersstr.push_str(database::User::user_to_string(&user).as_str());
+                    }
+                    response_data.push_str(usersstr.as_str());
+                },
+                Err(e) => {
+                    println!("request: Error selecting users: {:?}", e);
+                }
+            }
+        }
+        else if route == routes[2] {
+            match database::Token::select_all() {
+                Ok(t) => {
+                    let mut tokensstr = String::new();
+                    for token in t.iter() {
+                        tokensstr.push_str(database::Token::token_to_string(&token).as_str());
+                    }
+                    response_data.push_str(tokensstr.as_str());
+                },
+                Err(e) => {
+                    println!("request: Error selecting tokens: {:?}", e);
+                }
+            }
+        }
+        else if route == routes[0] { /*** (default route '/') */
+            response_data = String::from("Default route - default response :3")
+        }
+        else {
+            return Err(String::from(format!("request: Invalid route {}", route)))
+        }
+    }
+    else {
+        return Err(String::from(format!("request: Invalid request method [{}]: supporting only GET|POST", request_method)))
+    }
+
+    Ok(response_data)
 }

@@ -328,20 +328,19 @@ impl User {
         Ok(selected_users)
     }
 
-    #[allow(dead_code)]
-    pub fn create_users_from_vec() -> Result<()>{
+    pub fn create_users(params: std::collections::HashMap<&str, &str>) -> Result<()>{
         let users = vec![
             User { 
-                role_id: 2,
-                username: String::from("test_user_123"),
-                email: String::from("test-user-123@test.com"),
-                password: String::from("Ajmooo"),
-                config: String::from("{\"test1\": \"test11\", \"test22\": \"testval2\"}"),
-                active: true,
-                remember_token: String::from("apisdvv3uzz453b4"),
-                avatar: String::from("/img/default/user-avatar.png"),
-                created_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                updated_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+                role_id: params["role_id"].parse::<u64>().unwrap(),
+                username: String::from(params["username"]),
+                email: String::from(params["email"]), 
+                password: String::from(params["password"]), 
+                config: String::from(params["config"]), 
+                active: params["active"].eq("true"),
+                remember_token: String::from(params["remember_token"]), 
+                avatar: String::from(params["avatar"]), 
+                created_at: String::from(params["created_at"]), 
+                updated_at: String::from(params["updated_at"]), 
             },
         ];
         /********************************************/
@@ -497,17 +496,16 @@ impl Token {
         Ok(selected_tokens)
     }
 
-    #[allow(dead_code)]
-    pub fn create_tokens_from_vec() -> Result<()>{
+    pub fn create_tokens(params: std::collections::HashMap<&str, &str>) -> Result<()>{
         let tokens: Vec<Token> = vec![
             Token { 
-                user_id: 71,
-                token_type: String::from("Bearer"),
-                access_token: String::from("9jojOELU1YcWq1sh3dRHLdn+GjA7e/Hn"),
-                refresh_token: String::from("OGaQHohcJ4skNBulc5KPCMywyNB4JB7UvSS8isvsMTo="),
-                token_expire: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                created_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                updated_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+                user_id: params["user_id"].parse::<u64>().unwrap(),
+                token_type: String::from(params["token_type"]),
+                access_token: String::from(params["access_token"]),
+                refresh_token: String::from(params["refresh_token"]),
+                token_expire: String::from(params["token_expire"]),
+                created_at: String::from(params["created_at"]),
+                updated_at: String::from(params["updated_at"]),
             },
         ];
         /********************************************/

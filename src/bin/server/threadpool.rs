@@ -6,7 +6,7 @@ use std::sync::{Mutex, Arc};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use chrono::Local;
-use crate::server::{request, response, cstmfiles, cstmconfig::AssetsConfig};
+use crate::server::{response, cstmfiles, cstmconfig::AssetsConfig};
     
 /*
  * 1. The ThreadPool will create a channel and hold on to the sending side of the channel.
@@ -18,8 +18,6 @@ use crate::server::{request, response, cstmfiles, cstmconfig::AssetsConfig};
 static THREAD_LIMIT : usize = 10;
 const IDENTIFICATOR: &str = "threadpool";
 type Job = Box<dyn FnOnce() + Send + 'static>;
-
-
 
 #[allow(dead_code)]
 pub struct ThreadPool {
@@ -98,7 +96,7 @@ pub fn handle_in_threadpool(
                         let data: &str = recv.trim_matches(char::from(0));
                         _data = String::from(data);
                         println!("Connection: bytes: {}b; data: {:?}", bytes, data);
-                        match request::validate_http_request(&data) {
+                        match validate_http_request(&data) {
                             Ok(_http_request) => {
                                 println!("{}: HTTP connection - Skipping sending to thrstdin", IDENTIFICATOR);
                             }, 
@@ -140,7 +138,7 @@ pub fn handle_in_threadpool(
 fn handle_connection(stream: TcpStream, data: String) -> Result<(), String> {
     let ip: IpAddr = stream.peer_addr().unwrap().ip();
     let port: u16 = stream.peer_addr().unwrap().port();
-    match request::validate_http_request(&data) {
+    match validate_http_request(&data) {
         Ok(_http_request) => {
            /*
             * HTTP request
@@ -204,4 +202,18 @@ fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+pub fn validate_http_request(buffer: &str) -> Result<Vec<&str>, String> {
+    match buffer.split_once("\r\n") {
+        Some(httprequest) => {
+            let http_req : Vec<&str> = httprequest.0.split(' ').collect();
+            Ok(http_req)
+        }, 
+        None => {
+            // ???????
+            let errmsg: &str = "request: Input does not consist of any newlines - not a HTTP request - skipping..";
+            return Err(String::from(errmsg))
+        }
+    }
 }

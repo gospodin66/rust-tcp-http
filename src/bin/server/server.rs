@@ -15,7 +15,6 @@ mod database;
 mod cstmconfig;
 mod cstmfiles;
 mod headers;
-mod request;
 mod response;
 mod thrchannel;
 
