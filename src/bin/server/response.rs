@@ -238,11 +238,7 @@ pub fn process_request(request_method: &str, route: &str, routes: &Vec<&str>, bu
     let mut response_data : String = String::new();
     // SELECT on GET | INSERT on POST
     if request_method == "POST" {
-
-
         let params = parse_request_parameters(&buffer);
-        println!("\n\nDEBUG: {:?}\n\n", params);
-
         
         if route == routes[1] {
             match database::User::create_users(params) {
