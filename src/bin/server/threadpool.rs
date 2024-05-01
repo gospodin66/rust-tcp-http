@@ -81,12 +81,10 @@ pub fn handle_in_threadpool(
     listener: &TcpListener,
 ) -> Result<(), String> {
     let pool: ThreadPool = ThreadPool::new(THREAD_LIMIT);
-
     println!("{}: Initializing thread channel.", IDENTIFICATOR);
     let thrstdin_thrmain_channel: ThrChannel = thrchannel::ThrChannel::new_channel();
     println!("{}: Initializing input thread.", IDENTIFICATOR);
     thrstdin::init_thread(thrstdin_thrmain_channel.rx).unwrap();
-
     for s in listener.incoming() {
         match s {
             Ok(stream) => {
@@ -112,7 +110,9 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
     let stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());
     let mut buffer: [u8; 4096] = [0; 4096];
     let mut _data: String = String::new();
-
+    /*
+     * peek() - wait until client sends first packet
+     */
     println!("\nReceived connection from {}:{}", ip, port);
     match stream.peek(&mut buffer) {
         Ok(bytes) => {
