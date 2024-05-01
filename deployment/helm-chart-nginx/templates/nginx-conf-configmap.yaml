@@ -44,7 +44,7 @@ data:
         keepalive_timeout 60;
 
         location / {
-            proxy_pass http://rust-server;
+            return 200;
 
             allow  10.2.0.0/24;
             allow  10.42.0.0/16;
@@ -111,7 +111,6 @@ data:
       access_log /var/log/nginx/access.log;
       sendfile on;
       tcp_nopush on;
-      # this seems to be required for some vhosts
       server_names_hash_bucket_size 128;
 
       client_header_timeout 60s;

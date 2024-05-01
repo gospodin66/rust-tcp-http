@@ -6,8 +6,9 @@ use std::sync::{Mutex, Arc};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use chrono::Local;
+use crate::server::thrchannel::{self, ThrChannel};
 use crate::server::{response, cstmfiles, cstmconfig::AssetsConfig};
-use crate::server::validator;
+use crate::server::{thrstdin, validator};
 
 /*
  * 1. The ThreadPool will create a channel and hold on to the sending side of the channel.
@@ -78,41 +79,20 @@ impl Worker {
 
 pub fn handle_in_threadpool(
     listener: &TcpListener,
-    thrstdin_thrmain_channel_tx: Arc<Mutex<mpsc::Sender<TcpStream>>>,
 ) -> Result<(), String> {
     let pool: ThreadPool = ThreadPool::new(THREAD_LIMIT);
+
+    println!("{}: Initializing thread channel.", IDENTIFICATOR);
+    let thrstdin_thrmain_channel: ThrChannel = thrchannel::ThrChannel::new_channel();
+    println!("{}: Initializing input thread.", IDENTIFICATOR);
+    thrstdin::init_thread(thrstdin_thrmain_channel.rx).unwrap();
+
     for s in listener.incoming() {
         match s {
             Ok(stream) => {
-                let ip: IpAddr = stream.peer_addr().unwrap().ip();
-                let port: u16 = stream.peer_addr().unwrap().port();
-                let mut stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());
-                let mut buffer: [u8; 4096] = [0; 4096];
-                let mut _data = String::new();
-                println!("\nReceived connection from {}:{}", ip, port);
-                match stream_clone.read(&mut buffer) {
-                    Ok(bytes) => {
-                        let recv: Cow<str> = String::from_utf8_lossy(&buffer[..]);
-                        let data: &str = recv.trim_matches(char::from(0));
-                        _data = String::from(data);
-                        println!("Connection: bytes: {}b; data: {:?}", bytes, data);
-                        match validator::validate_http_request(&data) {
-                            Ok(_http_request) => println!("{}: HTTP connection - Skipping sending to thrstdin", IDENTIFICATOR), 
-                            _ => {
-                                /* send new connection to thread-stdin */
-                                match thrstdin_thrmain_channel_tx.lock().unwrap().send(stream) {
-                                    Ok(()) => println!("threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
-                                    Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        return Err(format!("{}: Error recieving data: {}", IDENTIFICATOR, e));
-                    }
-                }
+                let thrstdin_thrmain_channel_tx_clone: Arc<Mutex<mpsc::Sender<TcpStream>>> = thrstdin_thrmain_channel.tx.clone();
                 pool.execute(move || {
-                    match handle_connection(stream_clone, _data) {
+                    match handle_connection(stream, thrstdin_thrmain_channel_tx_clone) {
                         Ok(()) => {},
                         Err(e) => println!("{}: Error on connection handler: {}", IDENTIFICATOR, e)
                     }
@@ -126,33 +106,50 @@ pub fn handle_in_threadpool(
     Ok(())
 }
 
-fn handle_connection(stream: TcpStream, data: String) -> Result<(), String> {
-    let ip: IpAddr = stream.peer_addr().unwrap().ip();
-    let port: u16 = stream.peer_addr().unwrap().port();
-    match validator::validate_http_request(&data) {
+fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<mpsc::Sender<TcpStream>>>) -> Result<(), String> {
+    let ip: IpAddr = stream.peer_addr().expect(format!("{}: failed to parse IP address from stream", IDENTIFICATOR).as_str()).ip();
+    let port: u16 = stream.peer_addr().expect(format!("{}: failed to parse port from stream", IDENTIFICATOR).as_str()).port();
+    let stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());
+    let mut buffer: [u8; 4096] = [0; 4096];
+    let mut _data: String = String::new();
+
+    println!("\nReceived connection from {}:{}", ip, port);
+    match stream.peek(&mut buffer) {
+        Ok(bytes) => {
+            _data = String::from_utf8_lossy(&buffer[..]).trim_matches(char::from(0)).to_string();
+            println!("Connection [{}:{}]:\n>>> bytes: {}[b]\n>>> data: {:?}", ip, port, bytes, _data);
+        }
+        Err(e) => return Err(format!("{}: Error recieving data: {}", IDENTIFICATOR, e))
+    }
+    match validator::validate_http_request(&_data) {
         Ok(_http_request) => {
-           /* HTTP request */
+            /* HTTP request - do not send new connection to thread-stdin */
             println!(">>> {}: Handling HTTP response {}:{}\n>>>\n", IDENTIFICATOR, &ip, &port);
-            match response::write_http_response(&stream, &data) {
+            match response::write_http_response(&stream, &_data) {
                 Ok(()) => {}, 
                 Err(e) => println!("{}: Error sending html response to {}:{}: {}", IDENTIFICATOR, ip, port, e)
             }
             println!("\n<<<");
             /* disconnect HTTP connection after serving content */
             match stream.shutdown(Shutdown::Both) {
-                Ok(()) => println!("HTTP connection closed."),
+                Ok(()) => println!("<<< HTTP connection closed."),
                 Err(e) => println!("shutdown() call failed: {}", e)
             }
-        }, 
+        },
         _ => {
-            /* default TCP request */
+            /* default TCP request - send new connection to thread-stdin */
+            match thrstdin_thrmain_channel_tx.lock().unwrap().send(stream) {
+                Ok(()) => println!(">>> threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
+                Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
+            }
             println!(">>> {}: Handling TCP connection {}:{}", IDENTIFICATOR, &ip, &port);
-            match loop_connection(&stream) {
+            match loop_connection(&stream_clone) {
                 Ok(()) => {},
                 Err(e) => println!("{}: Error handling tcp connection to {}:{}: {}", IDENTIFICATOR, ip, port, e)
             }
         }
     }
+
     Ok(())
 }
 
