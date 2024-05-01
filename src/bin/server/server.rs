@@ -17,6 +17,7 @@ mod cstmfiles;
 mod headers;
 mod response;
 mod thrchannel;
+mod validator;
 
 const IDENTIFICATOR: &str = "core";
 
@@ -33,9 +34,9 @@ impl Server {
         /*
         *  convert ip address from .env file: String => Vec<&str> => Vec<u8> => [u8; 4]
         */
-        let ip_str : Vec<&str> = cfg.host.as_str().split('.').collect();
-        let ip_vec : Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
-        let ip : [u8; 4] = helpers::vec_to_arr(ip_vec);
+        let ip_str: Vec<&str> = cfg.host.as_str().split('.').collect();
+        let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
+        let ip: [u8; 4] = helpers::vec_to_arr(ip_vec);
         let addrs: [SocketAddr; 2] = [
             SocketAddr::from((ip, port1)),
             SocketAddr::from((ip, port2)),
@@ -44,28 +45,20 @@ impl Server {
             Ok(()) => { println!("{}: Successfuly created log file at {}", IDENTIFICATOR, &fpath); }
             Err(_e) => {}
         }
-        
         println!("{}: Initializing thread channel.", IDENTIFICATOR);
         let thrstdin_thrmain_channel: ThrChannel = thrchannel::ThrChannel::new_channel();
         println!("{}: Initializing input thread.", IDENTIFICATOR);
         thrstdin::init_thread(thrstdin_thrmain_channel.rx).unwrap();
-
+        
         match self::init_server(&addrs) {
             Ok(listener) => {
                 println!("{}: [{}] listening for connections..", IDENTIFICATOR, &addrs[0]);
-                match self::listen_for_connections(
-                    &listener,
-                    thrstdin_thrmain_channel.tx
-                ) {
-                    Ok(()) => { Ok(()) },
-                    Err(e) => {
-                        return Err(format!("{}: Error on listener: {}", IDENTIFICATOR, e));
-                    }
+                match self::listen_for_connections(&listener, thrstdin_thrmain_channel.tx) {
+                    Ok(()) => Ok(()),
+                    Err(e) => return Err(format!("{}: Error on listener: {}", IDENTIFICATOR, e))
                 }
             }, 
-            Err(e) => {
-                return Err(format!("{}: Error initializing server: {}", IDENTIFICATOR, e));
-            }
+            Err(e) => return Err(format!("{}: Error initializing server: {}", IDENTIFICATOR, e))
         }
     }
 }
@@ -73,7 +66,7 @@ impl Server {
 
 fn init_server(ip_port: &[SocketAddr; 2]) -> Result<TcpListener, String>{
     match TcpListener::bind(format!("{}", ip_port[0])) {
-        Ok(listener) => { Ok(listener) },
+        Ok(listener) => Ok(listener),
         _ => {
             println!("{}: Error on bind().. Trying fallback ip:port pair..", IDENTIFICATOR);
             match TcpListener::bind(format!("{}", ip_port[1])) {

@@ -3,30 +3,11 @@ use std::fs;
 use std::net::TcpStream;
 use std::io::Write;
 use chrono::Local;
-//use url::{Url, ParseError};
-
 use crate::server::cstmfiles;
-use crate::server::cstmconfig::{AssetsConfig, ServerConfig, BaseConfig};
+use crate::server::cstmconfig::{AssetsConfig, BaseConfig};
 use crate::server::headers;
 use crate::server::database;
-
-fn validate_request_method(meth: &str) -> Result<(), String> {
-    let server_config: ServerConfig = ServerConfig::new_cfg();
-    for method in server_config.request_methods {
-        if meth == method {
-            return Ok(());
-        }
-    }
-    Err(String::from("http-response: Invalid request method."))
-}
-fn validate_route<'a>(route: &'a str, routes: &Vec<&str>) -> Result<(), String> {
-    for (_, r) in routes.iter().enumerate() {
-        if <String as From<&str>>::from(r) == String::from(route) {
-            return Ok(());
-        }
-    }
-    Err(String::from("http-response: Invalid route path."))
-}
+use crate::server::validator;
 
 fn fetch_get_routes() -> Vec<&'static str> {
     vec![
@@ -48,10 +29,25 @@ fn fetch_empty_routes() -> Vec<&'static str> {
     return vec![]
 }
 
+pub fn parse_request_parameters(buffer: &str) -> HashMap<&str, &str> {
+    let lines: Vec<&str> = buffer.split("\r\n").collect::<Vec<&str>>();
+    match lines.last() {
+        Some(element) => {
+            let req_params: Vec<&str> = element.split('&').collect::<Vec<&str>>();
+            let mut params: HashMap<&str, &str> = std::collections::HashMap::new();
+            for param in req_params.iter() {
+                let k_v: (&str, &str) = param.split_once('=').unwrap();
+                params.insert(k_v.0, k_v.1);
+            }
+            params
+        },        
+        None => std::collections::HashMap::new()
+    }
+}
 
 fn build_http_response(buffer: &str) -> Result<(&str,&str,Vec<&str>,String,String), String> {
     let get_routes = |req_method: &str| -> Vec<&str> {
-        match validate_request_method(&req_method) {
+        match validator::validate_request_method(&req_method) {
             Ok(()) => {
                 if req_method == "GET" {
                     fetch_get_routes()
@@ -66,34 +62,29 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,Vec<&str>,String,Strin
             }
         }
     };
-    let res_ok : String = format!("{} 200 OK", BaseConfig::new_cfg().http_protocol);
+    let res_ok: String = format!("{} 200 OK", BaseConfig::new_cfg().http_protocol);
     let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
-    let http_req : Vec<&str>;
     /*
      * use 1st tuple val of buffer, drop the rest as
      * req_method|route|http_proto are always first in HTTP request
      */
-    match validate_http_request(&buffer) {
-        Ok(http_request_parsed) => {
-            http_req = http_request_parsed;
-        },
-        Err(e) => {
-            return Err(format!("http-response: Error validating HTTP request: {}", e));
-        }
-    }
-
+    let http_req: Vec<&str> = match validator::validate_http_request(&buffer) {
+        Ok(http_request_parsed) => http_request_parsed,
+        Err(e) => return Err(format!("http-response: Error validating HTTP request: {}", e))
+    };
     let req_method: &str = http_req[0];
     let req_route: &str = http_req[1];
     let routes: Vec<&str> = get_routes(req_method);
 
-    match validate_route(&req_route, &routes) {
+    match validator::validate_route(&req_route, &routes) {
         Ok(()) => {},
         Err(e) => {
             return Err(format!("http-response: Error validating HTTP route: {}", e));
         }
     }
 
-    let (status_line, view_file) = if req_route == routes[0] {
+    let (status_line, view_file) = 
+    if req_route == routes[0] {
         (res_ok, format!("{}page.html", assets_cfg.html_base_path))
     } else if req_route == routes[1] {
         (res_ok, format!("{}users.html", assets_cfg.html_base_path))
@@ -106,42 +97,20 @@ fn build_http_response(buffer: &str) -> Result<(&str,&str,Vec<&str>,String,Strin
     Ok((req_method, req_route, routes, status_line, view_file))
 }
 
-
-pub fn validate_http_request(buffer: &str) -> Result<Vec<&str>, String> {
-    match buffer.split_once("\r\n") {
-        Some(httprequest) => {
-            let http_req : Vec<&str> = httprequest.0.split(' ').collect();
-            Ok(http_req)
-        }, 
-        None => {
-            // ???????
-            let errmsg: &str = "request: Input does not consist of any newlines - not a HTTP request - skipping..";
-            return Err(String::from(errmsg))
-        }
-    }
-}
-
 pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), String> {
     let mut response_data: String = String::new();
     let mut response: String = String::new();
     let mut contents_all: String = String::new();
-    let (req_method, route, routes, mut status_line, view_file) : (&str,&str,Vec<&str>,String,String);
     let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
     let fpath: String = assets_cfg.log_dir+"/"+&assets_cfg.log_path;
-
-    match build_http_response(&buffer) {
-        Ok((rm, rt, rts, sl, vf)) => {
-            req_method = rm;
-            route = rt;
-            routes = rts;
-            status_line = sl;
-            view_file = vf;
-        },
-        Err(e) => {
-            stream.shutdown(std::net::Shutdown::Write).unwrap();
-            return Err(format!("http-response: Error building response: {}", e));
-        }
-    }
+    let (req_method, route, routes, mut status_line, view_file): 
+        (&str, &str, Vec<&str>, String, String) = match build_http_response(&buffer) {
+            Ok((rm, rt, rts, sl, vf)) => (rm, rt, rts, sl, vf),
+            Err(e) => {
+                stream.shutdown(std::net::Shutdown::Write).unwrap();
+                return Err(format!("http-response: Error building response: {}", e));
+            }
+        };
 
     match process_request(&req_method, &route, &routes, &buffer) {
         Ok(res_data) => {
@@ -172,7 +141,8 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
 
     let headers: [String; 10] = headers::fetch_headers(contents_all.len());
     /*
-     * HTTP text-based protocol basic response format:
+     * HTTP text-based protocol response format:
+     * 
      * {HTTP/1.1 200 OK}\r\n
      * {HEADERS}\r\n
      * {CONTENT}
@@ -211,34 +181,11 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
     Ok(())
 }
 
-
-
-pub fn parse_request_parameters(buffer: &str) -> HashMap<&str, &str> {
-
-    let lines = buffer.split("\r\n").collect::<Vec<&str>>();
-
-    match lines.last() {
-        Some(element) => {
-            let req_params = element.split('&').collect::<Vec<&str>>();
-            let mut params = std::collections::HashMap::new();
-            for param in req_params.iter() {
-                let k_v = param.split_once('=').unwrap();
-                params.insert(k_v.0, k_v.1);
-            }
-            params
-        },        
-        None => std::collections::HashMap::new()
-    }
-}
-
-
-
-
-pub fn process_request(request_method: &str, route: &str, routes: &Vec<&str>, buffer: &str) -> Result<String, String>{
+fn process_request(request_method: &str, route: &str, routes: &Vec<&str>, buffer: &str) -> Result<String, String> {
     let mut response_data : String = String::new();
     // SELECT on GET | INSERT on POST
     if request_method == "POST" {
-        let params = parse_request_parameters(&buffer);
+        let params: HashMap<&str, &str> = parse_request_parameters(&buffer);
         
         if route == routes[1] {
             match database::User::create_users(params) {

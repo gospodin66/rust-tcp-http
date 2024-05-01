@@ -17,11 +17,12 @@ curl -v \
     -d "token_expire=2024-04-17 23:51:40" \
     -d "created_at=2024-04-17 23:51:40" \
     -d "updated_at=2024-04-17 23:51:40" \
-    https://10.0.2.16/tokens
+    https://10.0.2.16/proxy/tokens
 
 curl -v \
     --insecure \
     -L \
+    -u cheki:UHIxKycxMygoKW94WHgzODYwaXA0cz0/JSMK \
     -X POST \
     -d "role_id=1" \
     -d "username=admin" \
@@ -33,4 +34,4 @@ curl -v \
     -d "avatar=/img/default/user-avatar.png" \
     -d "created_at=2024-04-17 23:51:40" \
     -d "updated_at=2024-04-17 23:51:40" \
-    https://10.0.2.16/users
+    https://10.0.2.16/proxy/users

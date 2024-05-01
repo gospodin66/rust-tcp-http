@@ -134,8 +134,6 @@ pub fn loop_user_stdin(
 }
 
 
-
-
 fn connect_client(ip: &str, port: u16) -> Result<TcpStream, String> {
     let ip_str: Vec<&str> = ip.split('.').collect();
     let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
@@ -144,8 +142,6 @@ fn connect_client(ip: &str, port: u16) -> Result<TcpStream, String> {
     let stream: TcpStream = TcpStream::connect(addr).expect("Error connecting to node");
     Ok(stream)
 }
-
-
 
 
 fn send_response(

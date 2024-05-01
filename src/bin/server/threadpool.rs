@@ -7,7 +7,8 @@ use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use chrono::Local;
 use crate::server::{response, cstmfiles, cstmconfig::AssetsConfig};
-    
+use crate::server::validator;
+
 /*
  * 1. The ThreadPool will create a channel and hold on to the sending side of the channel.
  * 2. Each Worker will hold on to the receiving side of the channel.
@@ -75,7 +76,6 @@ impl Worker {
     }
 }
 
-
 pub fn handle_in_threadpool(
     listener: &TcpListener,
     thrstdin_thrmain_channel_tx: Arc<Mutex<mpsc::Sender<TcpStream>>>,
@@ -86,7 +86,7 @@ pub fn handle_in_threadpool(
             Ok(stream) => {
                 let ip: IpAddr = stream.peer_addr().unwrap().ip();
                 let port: u16 = stream.peer_addr().unwrap().port();
-                let mut stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());                
+                let mut stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());
                 let mut buffer: [u8; 4096] = [0; 4096];
                 let mut _data = String::new();
                 println!("\nReceived connection from {}:{}", ip, port);
@@ -96,14 +96,10 @@ pub fn handle_in_threadpool(
                         let data: &str = recv.trim_matches(char::from(0));
                         _data = String::from(data);
                         println!("Connection: bytes: {}b; data: {:?}", bytes, data);
-                        match validate_http_request(&data) {
-                            Ok(_http_request) => {
-                                println!("{}: HTTP connection - Skipping sending to thrstdin", IDENTIFICATOR);
-                            }, 
+                        match validator::validate_http_request(&data) {
+                            Ok(_http_request) => println!("{}: HTTP connection - Skipping sending to thrstdin", IDENTIFICATOR), 
                             _ => {
-                                /*
-                                * send new connection to thread-stdin
-                                */
+                                /* send new connection to thread-stdin */
                                 match thrstdin_thrmain_channel_tx.lock().unwrap().send(stream) {
                                     Ok(()) => println!("threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
                                     Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
@@ -115,9 +111,6 @@ pub fn handle_in_threadpool(
                         return Err(format!("{}: Error recieving data: {}", IDENTIFICATOR, e));
                     }
                 }
-                /*
-                 * handle connection
-                 */
                 pool.execute(move || {
                     match handle_connection(stream_clone, _data) {
                         Ok(()) => {},
@@ -133,31 +126,26 @@ pub fn handle_in_threadpool(
     Ok(())
 }
 
-
-
 fn handle_connection(stream: TcpStream, data: String) -> Result<(), String> {
     let ip: IpAddr = stream.peer_addr().unwrap().ip();
     let port: u16 = stream.peer_addr().unwrap().port();
-    match validate_http_request(&data) {
+    match validator::validate_http_request(&data) {
         Ok(_http_request) => {
-           /*
-            * HTTP request
-            */
+           /* HTTP request */
             println!(">>> {}: Handling HTTP response {}:{}\n>>>\n", IDENTIFICATOR, &ip, &port);
             match response::write_http_response(&stream, &data) {
                 Ok(()) => {}, 
                 Err(e) => println!("{}: Error sending html response to {}:{}: {}", IDENTIFICATOR, ip, port, e)
             }
             println!("\n<<<");
-
-            // disconnect HTTP connection after serving content
-            println!("Shutting down HTTP connection..");
-            stream.shutdown(Shutdown::Both).expect("shutdown call failed");
+            /* disconnect HTTP connection after serving content */
+            match stream.shutdown(Shutdown::Both) {
+                Ok(()) => println!("HTTP connection closed."),
+                Err(e) => println!("shutdown() call failed: {}", e)
+            }
         }, 
         _ => {
-            /*
-             * default TCP request
-             */
+            /* default TCP request */
             println!(">>> {}: Handling TCP connection {}:{}", IDENTIFICATOR, &ip, &port);
             match loop_connection(&stream) {
                 Ok(()) => {},
@@ -168,21 +156,20 @@ fn handle_connection(stream: TcpStream, data: String) -> Result<(), String> {
     Ok(())
 }
 
-
 fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
-    let ip = stream.peer_addr().unwrap().ip();
+    let ip: IpAddr = stream.peer_addr().unwrap().ip();
     let port: u16 = stream.peer_addr().unwrap().port();
     let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
     let fpath: String = String::from(assets_cfg.log_dir+"/"+&assets_cfg.log_path);
     loop {
-        let mut buffer = [0; 4096];
+        let mut buffer: [u8; 4096] = [0; 4096];
         match stream.read(&mut buffer) {
             Ok(bytes) => {
                 if bytes == 0 {
                     println!("tcp-handler: Empty line");
                     break;
                 }
-                let recv = String::from_utf8_lossy(&buffer[..]);
+                let recv: Cow<'_, str> = String::from_utf8_lossy(&buffer[..]);
                 let data: &str = recv.trim_matches(char::from(0));
                 let msg: String = format!(
                     "[{}] -- [{}:{}] -- [{} bytes]: {}\n",
@@ -204,16 +191,3 @@ fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
     Ok(())
 }
 
-pub fn validate_http_request(buffer: &str) -> Result<Vec<&str>, String> {
-    match buffer.split_once("\r\n") {
-        Some(httprequest) => {
-            let http_req : Vec<&str> = httprequest.0.split(' ').collect();
-            Ok(http_req)
-        }, 
-        None => {
-            // ???????
-            let errmsg: &str = "request: Input does not consist of any newlines - not a HTTP request - skipping..";
-            return Err(String::from(errmsg))
-        }
-    }
-}
