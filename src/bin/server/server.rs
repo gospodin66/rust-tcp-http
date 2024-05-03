@@ -11,7 +11,8 @@ mod database;
 mod cstmconfig;
 mod cstmfiles;
 mod headers;
-mod response;
+mod httpconnection;
+mod tcpconnection;
 mod thrchannel;
 mod validator;
 

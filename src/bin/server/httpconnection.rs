@@ -29,7 +29,7 @@ fn fetch_empty_routes() -> Vec<&'static str> {
     return vec![]
 }
 
-pub fn parse_request_parameters(buffer: &str) -> HashMap<&str, &str> {
+fn parse_request_parameters(buffer: &str) -> HashMap<&str, &str> {
     let lines: Vec<&str> = buffer.split("\r\n").collect::<Vec<&str>>();
     match lines.last() {
         Some(element) => {

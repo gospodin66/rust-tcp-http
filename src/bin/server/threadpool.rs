@@ -1,15 +1,10 @@
-use std::borrow::Cow;
-use std::io::prelude::*;
-#[allow(unused_imports)]
 use std::net::{TcpStream, TcpListener, Shutdown, IpAddr};
 use std::sync::{Mutex, Arc};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
-use chrono::Local;
-use chrono::format::{DelayedFormat, StrftimeItems};
-use crate::server::thrchannel::{self, ThrChannel};
-use crate::server::{response, cstmfiles, cstmconfig::AssetsConfig};
+use crate::server::{httpconnection, tcpconnection};
 use crate::server::{thrstdin, validator};
+use crate::server::thrchannel::{self, ThrChannel};
 
 /*
  * 1. The ThreadPool will create a channel and hold on to the sending side of the channel.
@@ -128,7 +123,7 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
         Ok(_http_request) => {
             /* HTTP request - do not send new connection to thread-stdin */
             println!(">>> {}: Handling HTTP response {}:{}\n>>>\n", IDENTIFICATOR, &ip, &port);
-            match response::write_http_response(&stream, &_data) {
+            match httpconnection::write_http_response(&stream, &_data) {
                 Ok(()) => {}, 
                 Err(e) => println!("{}: Error sending html response to {}:{}: {}", IDENTIFICATOR, ip, port, e)
             }
@@ -146,7 +141,7 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
                 Ok(()) => println!(">>> threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
                 Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
             }
-            match loop_connection(&stream_clone) {
+            match tcpconnection::loop_connection(&stream_clone) {
                 Ok(()) => {},
                 Err(e) => println!("{}: Error handling tcp connection from {}:{}: {}", IDENTIFICATOR, ip, port, e)
             }
@@ -160,35 +155,3 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
 
     Ok(())
 }
-
-fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
-    let (ip, port): (IpAddr, u16) = match stream.peer_addr() {
-        Ok(saddr) => (saddr.ip(), saddr.port()),
-        Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
-    };
-    let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
-    let fpath: String = String::from(assets_cfg.log_dir+"/"+&assets_cfg.log_path);
-    loop {
-        let mut buffer: [u8; 4096] = [0; 4096];
-        match stream.read(&mut buffer) {
-            Ok(bytes) => {
-                if bytes == 0 {
-                    println!("tcp-handler: Empty line");
-                    break;
-                }
-                let recv: Cow<'_, str> = String::from_utf8_lossy(&buffer[..]);
-                let data: &str = recv.trim_matches(char::from(0));
-                let now: DelayedFormat<StrftimeItems> = Local::now().format("%Y-%m-%d %H:%M:%S");
-                let msg: String = format!("[{}] -- [{}:{}] -- [{} bytes]: {}\n", now.to_string(), ip, port, bytes, &data);
-                print!("{}", &msg);
-                cstmfiles::f_write(&fpath, msg).expect("Error writing file.");
-            },
-            Err(e) => {
-                println!("tcp-handler: Error when reading line: {}", e);
-                break;
-            }
-        }
-    }
-    Ok(())
-}
-
