@@ -6,6 +6,7 @@ use std::sync::{Mutex, Arc};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use chrono::Local;
+use chrono::format::{DelayedFormat, StrftimeItems};
 use crate::server::thrchannel::{self, ThrChannel};
 use crate::server::{response, cstmfiles, cstmconfig::AssetsConfig};
 use crate::server::{thrstdin, validator};
@@ -177,14 +178,8 @@ fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
                 }
                 let recv: Cow<'_, str> = String::from_utf8_lossy(&buffer[..]);
                 let data: &str = recv.trim_matches(char::from(0));
-                let msg: String = format!(
-                    "[{}] -- [{}:{}] -- [{} bytes]: {}\n",
-                    Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    ip,
-                    port,
-                    bytes,
-                    &data
-                );
+                let now: DelayedFormat<StrftimeItems> = Local::now().format("%Y-%m-%d %H:%M:%S");
+                let msg: String = format!("[{}] -- [{}:{}] -- [{} bytes]: {}\n", now.to_string(), ip, port, bytes, &data);
                 print!("{}", &msg);
                 cstmfiles::f_write(&fpath, msg).expect("Error writing file.");
             },

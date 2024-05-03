@@ -1,6 +1,7 @@
 use std::net::{TcpStream, SocketAddr};
 use std::thread;
 use chrono::Local;
+use chrono::format::{DelayedFormat, StrftimeItems};
 use crate::server::{cstmfiles, cstmconfig};
 use std::sync::{Mutex, Arc, mpsc};
 use std::sync::mpsc::TryRecvError;
@@ -157,14 +158,8 @@ fn send_response(response: &String, mut socket: &TcpStream, logfile: &String) ->
     };
     match socket.write(response.as_bytes()) {
         Ok(bytes) => {
-            let msg = format!(
-                "[{time}]: Sent to {ip}:{port} [{bytes} bytes] -- {response}",
-                time=Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                ip=ip,
-                port=port,
-                bytes=bytes,
-                response=response
-            );
+            let now: DelayedFormat<StrftimeItems> = Local::now().format("%Y-%m-%d %H:%M:%S");
+            let msg = format!("[{}]: Sent to {}:{} [{} bytes] -- {}", now.to_string(), ip, port, bytes, response);
             cstmfiles::f_write(&logfile, msg.clone()).unwrap();
             println!("{}: {}", IDENTIFICATOR, msg);
         }, 
