@@ -96,24 +96,26 @@ pub fn handle_in_threadpool(
                     }
                 });
             },
-            Err(e) => {
-                return Err(format!("{}: Error on creating stream: {}", IDENTIFICATOR, e));
-            }
+            Err(e) => { return Err(format!("{}: Error on creating stream: {}", IDENTIFICATOR, e)); }
         }
     }
     Ok(())
 }
 
 fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<mpsc::Sender<TcpStream>>>) -> Result<(), String> {
-    let ip: IpAddr = stream.peer_addr().expect(format!("{}: failed to parse IP address from stream", IDENTIFICATOR).as_str()).ip();
-    let port: u16 = stream.peer_addr().expect(format!("{}: failed to parse port from stream", IDENTIFICATOR).as_str()).port();
-    let stream_clone: TcpStream = stream.try_clone().expect(format!("{}: clone-stream failed...", IDENTIFICATOR).as_str());
+    let (ip, port): (IpAddr, u16) = match stream.peer_addr() {
+        Ok(saddr) => (saddr.ip(), saddr.port()),
+        Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
+    };
+    let stream_clone: TcpStream = match stream.try_clone() {
+        Ok(tcp_stream_clone) => tcp_stream_clone,
+        Err(e) => return Err(format!("{}: Error clonning TcpStream: {}", IDENTIFICATOR, e))
+    };
     let mut buffer: [u8; 4096] = [0; 4096];
     let mut _data: String = String::new();
-    /*
-     * peek() - wait until client sends first packet
-     */
+    
     println!("\nReceived connection from {}:{}", ip, port);
+    /* peek() - wait until client sends first packet */
     match stream.peek(&mut buffer) {
         Ok(bytes) => {
             _data = String::from_utf8_lossy(&buffer[..]).trim_matches(char::from(0)).to_string();
@@ -133,19 +135,24 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
             /* disconnect HTTP connection after serving content */
             match stream.shutdown(Shutdown::Both) {
                 Ok(()) => println!("<<< HTTP connection closed."),
-                Err(e) => println!("shutdown() call failed: {}", e)
+                Err(e) => println!("shutdown() call failed on HTTP connection: {}", e)
             }
         },
         _ => {
             /* default TCP request - send new connection to thread-stdin */
+            println!(">>> {}: Handling TCP connection {}:{}", IDENTIFICATOR, &ip, &port);
             match thrstdin_thrmain_channel_tx.lock().unwrap().send(stream) {
                 Ok(()) => println!(">>> threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
                 Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)
             }
-            println!(">>> {}: Handling TCP connection {}:{}", IDENTIFICATOR, &ip, &port);
             match loop_connection(&stream_clone) {
                 Ok(()) => {},
-                Err(e) => println!("{}: Error handling tcp connection to {}:{}: {}", IDENTIFICATOR, ip, port, e)
+                Err(e) => println!("{}: Error handling tcp connection from {}:{}: {}", IDENTIFICATOR, ip, port, e)
+            }
+            /* attempt to disconnect TCP connection after loop exits */
+            match stream_clone.shutdown(Shutdown::Both) {
+                Ok(()) => println!("<<< TCP connection [{}:{}] closed.", ip, port),
+                Err(e) => println!("shutdown() call failed on TCP connection: {}", e)
             }
         }
     }
@@ -154,8 +161,10 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
 }
 
 fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
-    let ip: IpAddr = stream.peer_addr().unwrap().ip();
-    let port: u16 = stream.peer_addr().unwrap().port();
+    let (ip, port): (IpAddr, u16) = match stream.peer_addr() {
+        Ok(saddr) => (saddr.ip(), saddr.port()),
+        Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
+    };
     let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
     let fpath: String = String::from(assets_cfg.log_dir+"/"+&assets_cfg.log_path);
     loop {

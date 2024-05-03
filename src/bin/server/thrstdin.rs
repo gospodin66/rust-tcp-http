@@ -52,19 +52,17 @@ pub fn loop_user_stdin(
          */
         match thrstdin_thrmain_channel_rx.lock().unwrap().try_recv() {
             Ok(new_stream) => {
-                println!("thrstdin-threadchannel_rx: New stream received: {:?}", new_stream);
+                println!("{}-threadchannel_rx: New stream received: {:?}", IDENTIFICATOR, new_stream);
                 streams.push(new_stream);
             }, 
             Err(e) => {
                 if e != TryRecvError::Empty {
-                    println!("thrstdin-threadchannel_rx: Error receiving new streams: {}", e);
+                    println!("{}-threadchannel_rx: Error receiving new streams: {}", IDENTIFICATOR, e);
                 }
             }
         }
-        let response = process_stdin();
-        if response.is_empty() {
-            continue;
-        }
+        let response: String = process_stdin();
+        if response.is_empty() { continue; }
         if response == "exit:" {
             dc_all_nodes(&streams);
             streams.clear();
@@ -72,13 +70,12 @@ pub fn loop_user_stdin(
         }
         else if response.starts_with("dc:") {
             /*
-             * format: dc:127.0.0.1:9999
+             * fetch stream by ip:port from streams - format: dc:127.0.0.1:9999
              */
-            // fetch stream by ip:port from streams
-            let ip_port = response[3..].split(":").collect::<Vec<_>>();
-            let idx_to_remove = dc_node(&streams, ip_port).unwrap();
+            let ip_port: Vec<&str> = response[3..].split(":").collect::<Vec<_>>();
+            let idx_to_remove: usize = dc_node(&streams, ip_port).unwrap();
             if idx_to_remove != 0 {
-                print!("REMOVING IDX/IPPORT: {}", idx_to_remove);
+                println!("> Garbage-collector: removing index: {}", idx_to_remove);
                 streams.remove(idx_to_remove);
             }
         }
@@ -108,22 +105,31 @@ pub fn loop_user_stdin(
             }
         }
         else if response == "conns:" {
-            print_connected(&streams);
+            /* 
+             * Remove hanging connections from list (if any) after attempting to print connections:
+             * - looping indexes in reverse clears all indexes from streams since
+             *   remove() works in a way that removes idx and shifts to left
+             *   making next index in sequence potentially non-existing 
+             */
+            let indexes_to_remove: Vec<usize> = print_connected(&streams);
+            for i in indexes_to_remove.into_iter().rev() {
+                println!("> Garbage-collector: removing index: {}", i);
+                streams.remove(i);
+            }
         }
         else if response.starts_with("sendf:") {
             /*
              * format: sendf:/home/cheki/workspace/rust-tcp-http/README.md:127.0.0.1:47074
              */
-            let path_ip_port = response[6..].split_once(":").unwrap();
-            let file_path = path_ip_port.0;
-            let ip_port = path_ip_port.1.split(":").collect::<Vec<_>>();
-
+            let path_ip_port: (&str, &str) = response[6..].split_once(":").unwrap();
+            let file_path: &str = path_ip_port.0;
+            let ip_port: Vec<&str> = path_ip_port.1.split(":").collect::<Vec<_>>();
             send_file(&streams, file_path, ip_port).unwrap();
         }
         else {
             let mut i: usize = 0;
             while i < streams.iter().enumerate().len() {
-                if send_response(&response,  &streams[i], &fpath) != 0 {
+                if send_response(&response,  &streams[i], &fpath) != Ok(0) {
                     streams.remove(i);
                 }
                 i = i+1;
@@ -144,26 +150,11 @@ fn connect_client(ip: &str, port: u16) -> Result<TcpStream, String> {
 }
 
 
-fn send_response(
-    response: &String, 
-    mut socket: &TcpStream, 
-    logfile: &String,
-) -> u8 {
-    let ip: String = match socket.peer_addr() {
-        Ok(ip) => ip.ip().to_string(),
-        Err(e) => {
-            println!("{}: Error fetching client IP address: {}", IDENTIFICATOR, e);
-            return 1
-        }
+fn send_response(response: &String, mut socket: &TcpStream, logfile: &String) -> Result<u8, String> {
+    let (ip, port): (String, u16) = match socket.peer_addr() {
+        Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
+        Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
     };
-    let port = match socket.peer_addr() {
-        Ok(port) => port.port(),
-        Err(e) => {
-            println!("{}: Error fetching client port: {}", IDENTIFICATOR, e);
-            return 1
-        }
-    };
-
     match socket.write(response.as_bytes()) {
         Ok(bytes) => {
             let msg = format!(
@@ -177,19 +168,14 @@ fn send_response(
             cstmfiles::f_write(&logfile, msg.clone()).unwrap();
             println!("{}: {}", IDENTIFICATOR, msg);
         }, 
-        Err(e) => { 
-            println!("{}: Error writing to stream: {:?} -- {} -- removing from streams", IDENTIFICATOR, socket, e);
-            return 1
-        }
+        Err(e) => return Err(format!("{}: Error writing to stream: {:?} -- {} -- removing from streams", IDENTIFICATOR, socket, e))
     }
-    // flush() ensures all data is written on the stream
+    /* flush() ensures all data is written on the stream */
     match socket.flush() {
         Ok(()) => {}, 
-        Err(e) => {
-            println!("{}: http-response: Error flushing stream: {}", IDENTIFICATOR, e);
-        }
+        Err(e) => return Err(format!("{}: http-response: Error flushing stream: {}", IDENTIFICATOR, e))
     }
-    return 0
+    Ok(0)
 
 }
 
@@ -202,12 +188,16 @@ fn dc_all_nodes(streams: &Vec<TcpStream>) {
 
 
 fn dc_node(streams: &Vec<TcpStream>, ip_port: Vec<&str>) -> Result<usize, String> {
-    let mut idx = 0;
+    let mut idx: usize = 0;
     for (i, s) in streams.iter().enumerate() {
-        if s.peer_addr().unwrap().ip().to_string() == ip_port[0] 
-        && s.peer_addr().unwrap().port() == ip_port[1].parse::<u16>().unwrap() {
+        let (ip, port): (String, u16) = match s.peer_addr() {
+            Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
+            Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
+        };
+        if ip == ip_port[0] && port == ip_port[1].parse::<u16>().unwrap() {
             s.shutdown(Shutdown::Both).unwrap();
             idx = i;
+            break;
         }
     }
     Ok(idx)
@@ -215,17 +205,19 @@ fn dc_node(streams: &Vec<TcpStream>, ip_port: Vec<&str>) -> Result<usize, String
 
 
 fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) -> Result<(), String>{
-    let mut file = File::open(file_path).expect("Error opening file");
+    let mut file: File = File::open(file_path).expect("Error opening file");
     for (_, mut s) in streams.iter().enumerate() {
-        if s.peer_addr().unwrap().ip().to_string() == ip_port[0] 
-        && s.peer_addr().unwrap().port() == ip_port[1].parse::<u16>().unwrap()
-        {
+        let (ip, port): (String, u16) = match s.peer_addr() {
+            Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
+            Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
+        };
+        if ip == ip_port[0] && port == ip_port[1].parse::<u16>().unwrap() {
             println!("{}: Sending file [{}] to {}:{}", IDENTIFICATOR, file_path, ip_port[0], ip_port[1]);
-            let mut buf = [0; 4096];
+            let mut buf: [u8; 4096] = [0; 4096];
             loop {
                 let n = file.read(&mut buf).unwrap();
                 if n == 0 {
-                    // reached end of file
+                    /* reached end of file */
                     break;
                 }
                 s.write_all(&buf[..n]).unwrap();
@@ -252,28 +244,24 @@ fn process_stdin() -> String {
 }
 
 
-fn print_connected(streams: &Vec<TcpStream>) {
+fn print_connected(streams: &Vec<TcpStream>) -> Vec<usize> {
     println!("\nConnected streams:");
+    let mut streams_to_rm: Vec<usize> = Vec::new();
     for (i, s) in streams.iter().enumerate() {
-        let ip: String = match s.peer_addr() {
-            Ok(ip) => ip.ip().to_string(),
+        let (ip, port): (String, u16) = match s.peer_addr() {
+            Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
             Err(e) => {
-                println!("{}: Error fetching client IP address: {}", IDENTIFICATOR, e);
-                String::from("")
-            }
-        };
-        let port = match s.peer_addr() {
-            Ok(port) => port.port(),
-            Err(e) => {
-                println!("{}: Error fetching client port: {}", IDENTIFICATOR, e);
-                0
+                println!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e);
+                (String::from(""), 0)
             }
         };
         if ip == String::from("") || port == 0 {
-            println!("Client [{}-{}:{}] not connected?", i, ip, port);
+            println!("> Garbage-collector: index {} added for removal.", i);
+            streams_to_rm.push(i);
         } else {
             println!("{} -- {}:{}", i, ip, port);
         }
     }
     println!("");
+    streams_to_rm
 }

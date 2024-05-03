@@ -15,7 +15,7 @@ server:
       - chmod 664 /tmp/html/*.html;
       - ls -ltr /tmp/html;
   cmd: /bin/server
-  image: 127.0.0.1:5000/v2/rust-server:1.2
+  image: 127.0.0.1:5000/v2/rust-server:1.3
   ports:
     main: 31500
     failover: 31501
