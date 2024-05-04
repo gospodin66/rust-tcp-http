@@ -27,19 +27,46 @@ cargo run --bin rust-tcp-http
 
 ### tcp requests:
 cargo run --bin client <server_ip> <server_port>
+||
+nc -v <server_ip> <server_port>
 
 
 ### Http requests:
-# insert user (pre-defined values in database::create_users_from_vec()):
-curl -X POST <server_ip>:<server_port>/users
-# insert token (pre-defined values in database::create_tokens_from_vec()):
-curl -X POST <server_ip>:<server_port>/tokens
-
 # get users:
-curl <server_ip>:<server_port>/users
+curl -v --insecure -L https://<server_ip>:<server_port>/users
 # get tokens:
-curl <server_ip>:<server_port>/tokens
-  
+curl -v --insecure -L https://<server_ip>:<server_port>/tokens
+# insert token
+curl -v \
+    --insecure \
+    -L \
+    -u cheki:UHIxKycxMygoKW94WHgzODYwaXA0cz0/JSMK \
+    -X POST \
+    -d "user_id=92" \
+    -d "token_type=Bearer" \
+    -d "access_token=9jojOELU1YcWq1sh3dRHLdn+GjA7e/Hn" \
+    -d "refresh_token=OGaQHohcJ4skNBulc5KPCMywyNB4JB7UvSS8isvsMTo=" \
+    -d "token_expire=2024-04-17 23:51:40" \
+    -d "created_at=2024-04-17 23:51:40" \
+    -d "updated_at=2024-04-17 23:51:40" \
+    https://10.0.2.16/proxy/tokens
+# insert user:
+curl -v \
+    --insecure \
+    -L \
+    -u cheki:UHIxKycxMygoKW94WHgzODYwaXA0cz0/JSMK \
+    -X POST \
+    -d "role_id=1" \
+    -d "username=admin" \
+    -d "email=admin@no-existing.com" \
+    -d "password=admin@123" \
+    -d "config={\"test1\": \"test11\", \"test22\": \"testval2\"}" \
+    -d "active=true" \
+    -d "remember_token=apisdvv3uzz453b4" \
+    -d "avatar=/img/default/user-avatar.png" \
+    -d "created_at=2024-04-17 23:51:40" \
+    -d "updated_at=2024-04-17 23:51:40" \
+    https://10.0.2.16/proxy/users
   
 # run encrypter:
 cargo run \
@@ -55,10 +82,15 @@ cargo run \
 
 ### SSH tunnel
 ```bash
-ssh -v -L 127.0.0.1:47111:<rust_server_ip>:<rust_server_port> localhost
+# forward default traffic
+ssh -p22222 -L 127.0.0.1:47111:<rust_server_ip>:<rust_server_port> cheki@localhost
 
 # client requests get forwarded to rust server
 cargo run --bin client 127.0.0.1 47111
+
+# forward ssl traffic
+ssh -p22222 -L 127.0.0.1:443:<rust_server_ip>:443 cheki@127.0.0.1
+
 ```
 
 
