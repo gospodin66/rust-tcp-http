@@ -2,23 +2,20 @@ use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::{BufReader, Read, Write, Error, ErrorKind};
-use std::os::unix::fs::OpenOptionsExt;
-use crate::server::cstmconfig::AssetsConfig;
 #[allow(unused_imports)]
 use std::path::Path;
 
 /**
  * create empty dir
  */
-pub fn f_create_dir(path: &String) -> std::io::Result<()>{
+#[allow(dead_code)]
+pub fn f_create_dir(path: &Path) -> std::io::Result<()>{
     if fs::metadata(path).is_ok(){
-        return Err(Error::new(ErrorKind::Other, format!("cstmfiles: Directory already exists at path: {}", path)));
+        return Err(Error::new(ErrorKind::Other, format!("cstmfiles: Directory already exists at path: {:?}", path)));
     }
-    match fs::create_dir(path){
-        Ok(()) => {},
-        Err(e) => {
-            return Err(Error::new(ErrorKind::Other, format!("cstmfiles: Error creating dir: {}", e)))
-        }
+    let parent_dir = Path::new(path).parent().unwrap();
+    if !parent_dir.exists() {
+        fs::create_dir_all(parent_dir).expect("Failed to create directory");
     }
     Ok(())
 }
@@ -31,28 +28,26 @@ pub fn f_create_dir(path: &String) -> std::io::Result<()>{
  * '?' operator is shorthand for e.g: .expect("Unable to open file")
  * 'Result<()>' is shorthand for e.g: Result<T,io::Error>
  */
-pub fn f_create(path: &String) -> std::io::Result<()>{
-    if fs::metadata(path).is_ok() {
-        return Err(Error::new(ErrorKind::Other, "File already exists"))
-    }
+#[allow(dead_code)]
+pub fn f_create(path: &Path) -> std::io::Result<()>{
+    //if fs::metadata(path).is_ok() {
+    //    return Err(Error::new(ErrorKind::Other, "File already exists"))
+    //}
+    //match f_create_dir(path) {
+    //    Ok(()) => {},
+    //    Err(e) => return Err(Error::new(ErrorKind::Other, format!("Error: Failed to create parent dir: {}", e)))
+    //}
+    let f: fs::File = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(true) 
+        .open(path)?;
 
-    let assets_config : AssetsConfig = AssetsConfig::new_cfg();
 
-    match f_create_dir(&assets_config.log_dir) {
-        Ok(()) => {
-            println!("cstmfiles: Parent dir created: {}", assets_config.log_dir);
-        },
-        Err(e) => {
-            println!("cstmfiles: Parent dir already exists: {}", e);
-        }
-    }
+    println!("\n\nDEBUG: {:?}\n\n", &f);
 
-    let f = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .mode(0o644)
-            .open(&path)?;
-    let perms = f.metadata()?.permissions();
+    let perms: fs::Permissions = f.metadata()?.permissions();
     //perms.set_readonly(true);
     //f.set_permissions(perms)?;
     println!("cstmfiles: File permissions: {:?}", perms);
@@ -63,12 +58,14 @@ pub fn f_create(path: &String) -> std::io::Result<()>{
  * .flush()    - flush this output stream, ensuring that all intermediately
  *               buffered contents reach their destination
  */
-pub fn f_write(path : &String, fcontents: String) -> std::io::Result<()> {
-    let fc_with_nl : String = fcontents + "\r\n";
-    let mut f = OpenOptions::new()
-                .write(true)
-                .append(true)
-                .open(&path)?;
+#[allow(dead_code)]
+pub fn f_write(path: &Path, fcontents: String) -> std::io::Result<()> {
+    let fc_with_nl: String = fcontents + "\r\n";
+    let mut f: fs::File = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(path)?;
     //f.set_len(5)?;
     f.write_all(fc_with_nl.as_bytes())?;
     f.sync_all()?;
@@ -76,7 +73,7 @@ pub fn f_write(path : &String, fcontents: String) -> std::io::Result<()> {
     Ok(())
 }
 #[allow(dead_code)]
-pub fn f_read(path : &String) -> std::io::Result<String> {
+pub fn f_read(path : &Path) -> std::io::Result<String> {
     let f = OpenOptions::new()
             .read(true)
             .open(&path)?;
@@ -86,19 +83,19 @@ pub fn f_read(path : &String) -> std::io::Result<String> {
     Ok(fcontents)
 }
 #[allow(dead_code)]
-pub fn f_remove(path : &String) -> std::io::Result<()> {
+pub fn f_remove(path : &Path) -> std::io::Result<()> {
     fs::remove_file(path)?;
     Ok(())
 }
 #[allow(dead_code)]
-pub fn f_get_f_len(path : &String) -> std::io::Result<u64> {
-    let f = OpenOptions::new()
+pub fn f_get_f_len(path : &Path) -> std::io::Result<u64> {
+    let f: fs::File = OpenOptions::new()
             .read(true)
             .open(&path)?;
     let len = f.metadata().unwrap().len();
     Ok(len)
 }
-
+#[allow(dead_code)]
 pub fn get_extension_from_filename(filename: &str) -> Option<&str> {
     Path::new(filename).extension().and_then(OsStr::to_str)
 }

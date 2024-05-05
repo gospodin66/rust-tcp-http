@@ -35,3 +35,5 @@ curl -v \
     -d "created_at=2024-04-17 23:51:40" \
     -d "updated_at=2024-04-17 23:51:40" \
     https://10.0.2.16/proxy/users
+
+curl -v --insecure -L https://10.0.2.16

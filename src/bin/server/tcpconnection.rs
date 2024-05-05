@@ -6,7 +6,7 @@ use chrono::Local;
 use crate::server::cstmfiles;
 use std::net::Shutdown;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, BufReader, Read, Write};
 use super::helpers;
 
 const IDENTIFICATOR: &str = "tcpconnection";
@@ -16,16 +16,17 @@ const IDENTIFICATOR: &str = "tcpconnection";
  * client -> server
  * 
  */
-pub fn loop_connection(mut stream: &TcpStream) -> Result<(), String> {
+pub fn loop_connection(stream: &TcpStream) -> Result<(), String> {
     let (ip, port): (IpAddr, u16) = match stream.peer_addr() {
         Ok(saddr) => (saddr.ip(), saddr.port()),
         Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
     };
     let assets_cfg: AssetsConfig = AssetsConfig::new_cfg();
     let fpath: String = String::from(assets_cfg.log_dir+"/"+&assets_cfg.log_path);
+    let mut reader: BufReader<&TcpStream> = BufReader::new(&stream);
     loop {
         let mut buffer: [u8; 4096] = [0; 4096];
-        match stream.read(&mut buffer) {
+        match reader.read(&mut buffer) {
             Ok(bytes) => {
                 if bytes == 0 {
                     println!("tcp-handler: Empty line");
@@ -75,17 +76,11 @@ pub fn send_message(server_input: &String, mut socket: &TcpStream, logfile: &Str
 
 }
 
-pub fn connect_client(ip: &str, port: u16) -> Result<TcpStream, String> {
-    let ip_str: Vec<&str> = ip.split('.').collect();
-    let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
-    let _ip: [u8; 4] = helpers::vec_to_arr(ip_vec);
-    let addr: SocketAddr = SocketAddr::from((_ip, port));
-    let stream: TcpStream = TcpStream::connect(addr).expect("Error connecting to node");
-    Ok(stream)
-}
-
 pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) -> Result<(), String>{
     let mut file: File = File::open(file_path).expect("Error opening file");
+    let file_extension: &str = cstmfiles::get_extension_from_filename(file_path).unwrap();
+    let init_payload: String = format!(">>>FILE_START>>>:{}\r\n", file_extension);
+    let stream_completed_flag: &str = "<<<FILE_END<<<";
     for (_, mut s) in streams.iter().enumerate() {
         let (ip, port): (String, u16) = match s.peer_addr() {
             Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
@@ -93,19 +88,37 @@ pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) 
         };
         if ip == ip_port[0] && port == ip_port[1].parse::<u16>().unwrap() {
             println!("{}: Sending file [{}] to {}:{}", IDENTIFICATOR, file_path, ip_port[0], ip_port[1]);
-            let mut buf: [u8; 4096] = [0; 4096];
+            /* Send file-incomming flag and file extension to client */
+            let mut payload: Vec<u8> = init_payload.as_bytes().to_vec();
             loop {
-                let n = file.read(&mut buf).unwrap();
+                let mut buf: [u8; 1024] = [0; 1024];
+                let n: usize = file.read(&mut buf).unwrap();
                 if n == 0 {
                     /* reached end of file */
                     break;
                 }
-                s.write_all(&buf[..n]).unwrap();
+                //let b64_file = base64::encode(&buf);
+                //println!("DEBUG: {:?}", b64_file);
+                payload.append(&mut buf.to_vec());
             }
-            println!("{}: File sent to {}:{}", IDENTIFICATOR, ip_port[0], ip_port[1]);
+            payload.append(&mut stream_completed_flag.as_bytes().to_vec());
+            match s.write_all(&payload[..]) {
+                Ok(()) => println!("{}: File sent to {}:{}", IDENTIFICATOR, ip_port[0], ip_port[1]),
+                Err(e) => println!("thrstdin: Error writing to stream: {:?} -- {}", s, e),
+            }
+            s.flush().unwrap();
         }
     }   
     Ok(())
+}
+
+pub fn connect_client(ip: &str, port: u16) -> Result<TcpStream, String> {
+    let ip_str: Vec<&str> = ip.split('.').collect();
+    let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
+    let _ip: [u8; 4] = helpers::vec_to_arr(ip_vec);
+    let addr: SocketAddr = SocketAddr::from((_ip, port));
+    let stream: TcpStream = TcpStream::connect(addr).expect("Error connecting to node");
+    Ok(stream)
 }
 
 pub fn process_stdin() -> String {

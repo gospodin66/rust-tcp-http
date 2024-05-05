@@ -112,7 +112,10 @@ pub fn loop_user_stdin(thrstdin_thrmain_channel_rx: Arc<Mutex<mpsc::Receiver<Tcp
             let path_ip_port: (&str, &str) = server_input[6..].split_once(":").unwrap();
             let file_path: &str = path_ip_port.0;
             let ip_port: Vec<&str> = path_ip_port.1.split(":").collect::<Vec<_>>();
-            tcpconnection::send_file(&streams, file_path, ip_port).unwrap();
+            match tcpconnection::send_file(&streams, file_path, ip_port) {
+                Ok(()) => println!("File sent successfuly!"),
+                Err(e) => println!("Error: Failed to send file: {}",e)
+            }
         }
         else {
             let mut i: usize = 0;

@@ -1,7 +1,9 @@
 mod thrstdin;
 mod helpers;
+mod cstmfiles;
 mod core;
 mod coreerr;
+extern crate base64;
 
 fn main() {
     match core::client() {
