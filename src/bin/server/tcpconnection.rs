@@ -81,6 +81,7 @@ pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) 
     let file_extension: &str = cstmfiles::get_extension_from_filename(file_path).unwrap();
     let init_payload: String = format!(">>>FILE_START>>>:{}\r\n", file_extension);
     let stream_completed_flag: &str = "<<<FILE_END<<<";
+    let bytes_to_read_per_attempt: usize = 1024;
     for (_, mut s) in streams.iter().enumerate() {
         let (ip, port): (String, u16) = match s.peer_addr() {
             Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
@@ -89,21 +90,25 @@ pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) 
         if ip == ip_port[0] && port == ip_port[1].parse::<u16>().unwrap() {
             println!("{}: Sending file [{}] to {}:{}", IDENTIFICATOR, file_path, ip_port[0], ip_port[1]);
             /* Send file-incomming flag and file extension to client */
-            let mut payload: Vec<u8> = init_payload.as_bytes().to_vec();
+            let mut total_bytes_read: Vec<u8> = init_payload.as_bytes().to_vec();
+            let mut read_attempt_nr: i32 = 0;
             loop {
-                let mut buf: [u8; 1024] = [0; 1024];
-                let n: usize = file.read(&mut buf).unwrap();
-                if n == 0 {
-                    /* reached end of file */
+                read_attempt_nr += 1;
+                println!("Read cycle {read_attempt_nr}");
+                let mut cur_buffer: Vec<u8> = vec![0; bytes_to_read_per_attempt];
+                let nr_of_bytes_read: usize = file.read(&mut cur_buffer).unwrap();
+                if nr_of_bytes_read == 0 {
+                    println!("EOF reached.");
                     break;
                 }
-                //let b64_file = base64::encode(&buf);
-                //println!("DEBUG: {:?}", b64_file);
-                payload.append(&mut buf.to_vec());
+                cur_buffer.truncate(nr_of_bytes_read);
+                total_bytes_read.append(&mut cur_buffer);
+                println!("Read {nr_of_bytes_read} bytes in cycle {read_attempt_nr}");
             }
-            payload.append(&mut stream_completed_flag.as_bytes().to_vec());
-            match s.write_all(&payload[..]) {
-                Ok(()) => println!("{}: File sent to {}:{}", IDENTIFICATOR, ip_port[0], ip_port[1]),
+            total_bytes_read.append(&mut stream_completed_flag.as_bytes().to_vec());
+            let fcontents: String = String::from_utf8_lossy(&total_bytes_read[..]).to_string();
+            match s.write_all(fcontents.as_bytes()) {
+                Ok(()) => println!("{}: File sent to {}:{} - size: {}", IDENTIFICATOR, ip_port[0], ip_port[1], total_bytes_read.len()),
                 Err(e) => println!("thrstdin: Error writing to stream: {:?} -- {}", s, e),
             }
             s.flush().unwrap();

@@ -68,11 +68,13 @@ pub fn client() -> Result<(), CoreErr>{
                         if data.contains(stream_start_flag) {
                             data = data.replace(stream_start_flag, "");
                             let file_extension: &str = &data[0..data.find("\r\n").unwrap()];
-                            let f_path: String = format!("recv.{file_extension}");
-                            let mut total_bytes_read: Vec<u8> = vec![];
+                            let data_1st_chunk: String = data.replace(format!("{}\r\n",file_extension).as_str(), "");
+                            let time_fmt_file: String = now.replace(":", "-").replace(" ", "-");
+                            let f_path: String = format!("{time_fmt_file}-recv.{file_extension}");
+                            let mut total_bytes_read: Vec<u8> = data_1st_chunk.as_bytes().to_vec();
                             let mut read_attempt_nr: i32 = 0;
-                            println!("> File transfer initiated!");
-                            println!("> Downloading file: {}", f_path.as_str());
+                            println!(">>> File transfer initiated: Detected File-Init flag: {}", stream_start_flag);
+                            println!(">>> Downloading file: {}", f_path.as_str());
                             stream.flush().unwrap();
                             loop {
                                 read_attempt_nr += 1;
@@ -98,19 +100,17 @@ pub fn client() -> Result<(), CoreErr>{
                                 let mut __data: String = String::from_utf8_lossy(&cur_buffer).to_string();
                                 if __data.contains(stream_completed_flag) {
                                     println!(">>> File transfer completed: Reached EOF flag: {}", stream_completed_flag);
-                                    // Drop stream_completed_flag from input
-                                    __data = __data.as_str().replace(stream_completed_flag, "");
+                                    // drop stream_completed_flag from file
+                                    __data = __data.replace(stream_completed_flag, "");
                                     total_bytes_read.append(&mut __data.as_bytes().to_vec());
                                     break;
-                                } else {
-                                    total_bytes_read.append(&mut cur_buffer);
-                                }
+                                } 
+                                total_bytes_read.append(&mut cur_buffer);
                                 println!("Read {nr_of_bytes_read} bytes in cycle {read_attempt_nr}");
                             }
                             println!("Total bytes read: {}", total_bytes_read.len());
-                            let fcontents: String = String::from_utf8_lossy(&total_bytes_read[..]).to_string();
-                            let fc_with_nl: String = fcontents + "\r\n";
-                            let mut __file: File = match File::create(f_path.as_str()) {
+                            let mut fcontents: String = String::from_utf8_lossy(&total_bytes_read[..]).to_string();
+                            let mut downloaded_file: File = match File::create(f_path.as_str()) {
                                 Ok(file) => file,
                                 Err(e) => { 
                                     let err = format!("Error: Failed to create file: {}", e);
@@ -118,9 +118,10 @@ pub fn client() -> Result<(), CoreErr>{
                                     return CoreErr { errmsg: err, errno: 1 }; 
                                 }
                             };
-                            __file.write_all(fc_with_nl.as_bytes()).unwrap();
-                            __file.sync_all().unwrap();
-                            __file.flush().unwrap();
+                            fcontents = format!("{}\r\n", fcontents);
+                            downloaded_file.write_all(fcontents.as_bytes()).unwrap();
+                            downloaded_file.sync_all().unwrap();
+                            downloaded_file.flush().unwrap();
                             println!("Successfuly written data to file.");
                         } else {
                             // Default write to stdout
