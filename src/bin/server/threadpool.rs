@@ -130,13 +130,13 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
             println!("\n<<<");
             /* disconnect HTTP connection after serving content */
             match stream.shutdown(Shutdown::Both) {
-                Ok(()) => println!("<<< HTTP connection closed."),
+                Ok(()) => println!("<<< HTTP connection [{}:{}] closed.", ip, port),
                 Err(e) => println!("shutdown() call failed on HTTP connection: {}", e)
             }
         },
         _ => {
             /* default TCP request - send new connection to thread-stdin */
-            println!(">>> {}: Handling TCP connection {}:{}", IDENTIFICATOR, &ip, &port);
+            println!(">>> {}: Handling TCP connection {}:{}>>>\n", IDENTIFICATOR, &ip, &port);
             match thrstdin_thrmain_channel_tx.lock().unwrap().send(stream) {
                 Ok(()) => println!(">>> threadpool-threadchannel_tx: Transmitter sent new stream to thrstdin"), 
                 Err(e) => println!("threadpool-threadchannel_tx: Error sending new stream to thrstdin on listener: {}", e)

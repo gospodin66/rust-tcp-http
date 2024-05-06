@@ -72,9 +72,10 @@ pub fn client() -> Result<(), CoreErr>{
                             let time_fmt_file: String = now.replace(":", "-").replace(" ", "-");
                             let f_path: String = format!("{time_fmt_file}-recv.{file_extension}");
                             let mut total_bytes_read: Vec<u8> = data_1st_chunk.as_bytes().to_vec();
-                            let mut read_attempt_nr: i32 = 0;
-                            println!(">>> File transfer initiated: Detected File-Init flag: {}", stream_start_flag);
+                            println!(">>> Detected File-Init flag: {} - file transfer initiated", stream_start_flag);
                             println!(">>> Downloading file: {}", f_path.as_str());
+                            let mut read_attempt_nr: i32 = 1;
+                            println!("Read {} bytes in cycle {}", total_bytes_read.len(), read_attempt_nr);
                             stream.flush().unwrap();
                             loop {
                                 read_attempt_nr += 1;
@@ -109,7 +110,7 @@ pub fn client() -> Result<(), CoreErr>{
                                 println!("Read {nr_of_bytes_read} bytes in cycle {read_attempt_nr}");
                             }
                             println!("Total bytes read: {}", total_bytes_read.len());
-                            let mut fcontents: String = String::from_utf8_lossy(&total_bytes_read[..]).to_string();
+                            let fcontents: String = String::from_utf8_lossy(&total_bytes_read[..]).to_string();
                             let mut downloaded_file: File = match File::create(f_path.as_str()) {
                                 Ok(file) => file,
                                 Err(e) => { 
@@ -118,7 +119,6 @@ pub fn client() -> Result<(), CoreErr>{
                                     return CoreErr { errmsg: err, errno: 1 }; 
                                 }
                             };
-                            fcontents = format!("{}\r\n", fcontents);
                             downloaded_file.write_all(fcontents.as_bytes()).unwrap();
                             downloaded_file.sync_all().unwrap();
                             downloaded_file.flush().unwrap();
