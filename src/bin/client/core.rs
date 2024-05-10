@@ -129,10 +129,11 @@ pub fn client() -> Result<(), CoreErr>{
                                 cur_buffer.truncate(nr_of_bytes_read);
                                 let mut __data: String = String::from_utf8_lossy(&cur_buffer).to_string();
                                 if __data.contains(stream_completed_flag) {
-                                    println!(">>> File transfer completed: Reached EOF flag: {}", stream_completed_flag);
                                     // drop stream_completed_flag from file
                                     __data = __data.replace(stream_completed_flag, "");
                                     total_bytes_read.append(&mut __data.as_bytes().to_vec());
+                                    println!("Read {} bytes in cycle {}", __data.as_bytes().len(), read_attempt_nr);
+                                    println!(">>> File transfer completed: Reached EOF flag: {}", stream_completed_flag);
                                     break;
                                 } 
                                 total_bytes_read.append(&mut cur_buffer);
