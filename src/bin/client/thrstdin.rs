@@ -7,7 +7,7 @@ use std::net::Shutdown;
 
 pub fn init_thread(stream: TcpStream) -> Result<(), String> {
     match loop_user_stdin(stream) {
-        Ok(()) => { Ok(()) }
+        Ok(()) => Ok(()),
         Err(e) => {
             let err = format!("thrstdin: Write thread error: {}", e);
             println!("{}", err);
@@ -19,18 +19,13 @@ pub fn init_thread(stream: TcpStream) -> Result<(), String> {
 pub fn loop_user_stdin(mut stream: TcpStream) -> Result<(), String> {
     thread::Builder::new().name("thr-stdin".to_string()).spawn(move || {
         loop {
-
             let response: String = process_stdin();
-
             if response == "exit:" {
                 stream.shutdown(Shutdown::Both).unwrap();
                 break;
             }
-            
             match stream.write(response.as_bytes()) {
-                Ok(bytes) => {
-                    println!("> bytes sent: {}", bytes);
-                },
+                Ok(bytes) =>  println!("> bytes sent: {}", bytes),
                 Err(e) => { 
                     println!("thrstdin: Error writing to stream: {:?} -- {}", stream, e);
                     break;

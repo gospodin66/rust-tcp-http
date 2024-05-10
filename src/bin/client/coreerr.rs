@@ -9,8 +9,8 @@ pub struct CoreErr {
 
 impl fmt::Display for CoreErr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let err = format!(
-            "CoreErr: Errno: {errno} | Errmsg: {errmsg}",
+        let err: String = format!(
+            "CoreErr [{errno}]: Errmsg: {errmsg}",
             errno=self.errno,
             errmsg=self.errmsg
         );

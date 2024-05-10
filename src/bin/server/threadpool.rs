@@ -26,22 +26,18 @@ pub struct ThreadPool {
 impl ThreadPool {
     pub fn new(size: usize) -> ThreadPool {
         assert!(size > 0);
-
         let (tx,rx) = mpsc::channel();
         let rx: Arc<Mutex<mpsc::Receiver<Box<dyn FnOnce() + Send>>>> = Arc::new(Mutex::new(rx));
         let mut workers: Vec<Worker> = Vec::with_capacity(size);
-
         for id in 0..size {
             workers.push(Worker::new(id, Arc::clone(&rx)));
         }
         ThreadPool { workers, tx }
     }
-
     pub fn execute<F>(&self, f: F) where F: FnOnce() + Send + 'static {
         let job: Box<F> = Box::new(f);
         self.tx.send(job).unwrap();
     }
-
 }
 
 /*
@@ -61,26 +57,38 @@ impl Worker {
                 .name(String::from("thr-worker"))
                 .spawn(move || loop {
                     // retrieve job from channel
-                    let job: Box<dyn FnOnce() + Send> = rx.lock().unwrap().recv().unwrap();
-                    println!("-----------------------------------------");
-                    println!("{}: Worker {} got a new job!", IDENTIFICATOR, id);
+                    let job = match rx.lock() {
+                        Ok(mutex_guard) => match mutex_guard.recv() {
+                            Ok(job) => {
+                                println!("-----------------------------------------");
+                                println!("{}: Worker {} got a new job!", IDENTIFICATOR, id);
+                                job
+                            },
+                            Err(e) => {
+                                println!("Error: Failed receiving init data from client: {}", e);
+                                return ()
+                            }
+                        },
+                        Err(e) => {
+                            println!("Error: Failed receiving init data from client: {}", e);
+                            return ()
+                        }
+                    };
                     job();
                 }).unwrap();
-        Worker {
-            id,
-            thread: thr,
-        }
+        Worker { id, thread: thr}
     }
 }
 
-pub fn handle_in_threadpool(
-    listener: &TcpListener,
-) -> Result<(), String> {
+pub fn handle_in_threadpool(listener: &TcpListener) -> Result<(), String> {
     let pool: ThreadPool = ThreadPool::new(THREAD_LIMIT);
     println!("{}: Initializing thread channel.", IDENTIFICATOR);
     let thrstdin_thrmain_channel: ThrChannel = thrchannel::ThrChannel::new_channel();
     println!("{}: Initializing input thread.", IDENTIFICATOR);
-    thrstdin::init_thread(thrstdin_thrmain_channel.rx).unwrap();
+    match thrstdin::init_thread(thrstdin_thrmain_channel.rx) {
+        Ok(()) => {},
+        Err(e) => return Err(format!("Error: failed to initialize thread: {}", e))
+    }
     for s in listener.incoming() {
         match s {
             Ok(stream) => {

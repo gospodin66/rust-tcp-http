@@ -35,9 +35,7 @@ pub fn f_create(path: &String) -> std::io::Result<()>{
     if fs::metadata(path).is_ok() {
         return Err(Error::new(ErrorKind::Other, "File already exists"))
     }
-
     let assets_config : AssetsConfig = AssetsConfig::new_cfg();
-
     match f_create_dir(&assets_config.log_dir) {
         Ok(()) => {
             println!("cstmfiles: Parent dir created: {}", assets_config.log_dir);
@@ -46,7 +44,6 @@ pub fn f_create(path: &String) -> std::io::Result<()>{
             println!("cstmfiles: Parent dir already exists: {}", e);
         }
     }
-
     let f = OpenOptions::new()
             .create(true)
             .write(true)

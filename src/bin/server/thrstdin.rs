@@ -40,15 +40,22 @@ pub fn loop_user_stdin(thrstdin_thrmain_channel_rx: Arc<Mutex<mpsc::Receiver<Tcp
          * Fetch new connections from thrstdin_thrmain_channel here 
          *    -- rx.try_recv() -> for non-blocking
          */
-        match thrstdin_thrmain_channel_rx.lock().unwrap().try_recv() {
-            Ok(new_stream) => {
-                println!("{}-threadchannel_rx: New stream received: {:?}", IDENTIFICATOR, new_stream);
-                streams.push(new_stream);
+        match thrstdin_thrmain_channel_rx.lock() {
+            Ok(mutex_guard) => {
+                match mutex_guard.try_recv() {
+                    Ok(new_stream) => {
+                        println!("{}-threadchannel_rx: New stream received: {:?}", IDENTIFICATOR, new_stream);
+                        streams.push(new_stream);
+                    }, 
+                    Err(e) => {
+                        if e != TryRecvError::Empty {
+                            println!("{}-threadchannel_rx: Error receiving new streams: {}", IDENTIFICATOR, e);
+                        }
+                    }
+                }
             }, 
             Err(e) => {
-                if e != TryRecvError::Empty {
-                    println!("{}-threadchannel_rx: Error receiving new streams: {}", IDENTIFICATOR, e);
-                }
+                println!("{}-threadchannel_rx: Error receiving mutex guard for new stream: {}", IDENTIFICATOR, e);
             }
         }
         let server_input: String = tcpconnection::process_stdin();
@@ -62,8 +69,22 @@ pub fn loop_user_stdin(thrstdin_thrmain_channel_rx: Arc<Mutex<mpsc::Receiver<Tcp
             /*
              * fetch stream by ip:port from streams - format: dc:127.0.0.1:9999
              */
-            let ip_port: Vec<&str> = server_input[3..].split(":").collect::<Vec<_>>();
-            let idx_to_remove: usize = tcpconnection::dc_node(&streams, ip_port).unwrap();
+            let ip_port: Vec<&str> = server_input[3..].split(":").collect();
+            let ip: &str = ip_port[0];
+            let port: u16 = match ip_port[1].parse::<u16>() {
+                Ok(port) => port,
+                Err(e) => {
+                    println!("Error parsing port: {}", e);
+                    return ();
+                }
+            };
+            let idx_to_remove: usize = match tcpconnection::dc_node(&streams, ip, port) {
+                Ok(idx) => idx,
+                Err(e) => {
+                    println!("> Garbage-collector: failed to disconnect node: {}", e);
+                    return ()
+                }
+            };
             if idx_to_remove != 0 {
                 println!("> Garbage-collector: removing index: {}", idx_to_remove);
                 streams.remove(idx_to_remove);
@@ -81,7 +102,13 @@ pub fn loop_user_stdin(thrstdin_thrmain_channel_rx: Arc<Mutex<mpsc::Receiver<Tcp
                 println!("No target ip:port specified..");
                 continue;
             }
-            let port_u16: u16 = port.parse::<u16>().expect("Error parsing port to u16");
+            let port_u16: u16 = match port.parse::<u16>() {
+                Ok(port) => port,
+                Err(e) => {
+                    println!("Error parsing port to u16: {}", e);
+                    return ();
+                }
+            };
             match tcpconnection::connect_client(ip, port_u16) {
                 Ok(stream) => {
                     println!("Connected to node: {:?}", stream);
@@ -109,10 +136,17 @@ pub fn loop_user_stdin(thrstdin_thrmain_channel_rx: Arc<Mutex<mpsc::Receiver<Tcp
             /*
              * format: sendf:/home/cheki/workspace/rust-tcp-http/README.md:127.0.0.1:47074
              */
-            let path_ip_port: (&str, &str) = server_input[6..].split_once(":").unwrap();
-            let file_path: &str = path_ip_port.0;
-            let ip_port: Vec<&str> = path_ip_port.1.split(":").collect::<Vec<_>>();
-            match tcpconnection::send_file(&streams, file_path, ip_port) {
+            let sendf_meta: Vec<&str> = server_input[6..].split(":").collect();
+            let file_path: &str = sendf_meta[0];
+            let ip: &str = sendf_meta[1];
+            let port: u16 = match sendf_meta[2].parse::<u16>() {
+                Ok(port) => port,
+                Err(e) => {
+                    println!("Error parsing port to u16: {}", e);
+                    return ();
+                }
+            };
+            match tcpconnection::send_file(&streams, file_path, ip, port) {
                 Ok(()) => println!("File sent successfuly!"),
                 Err(e) => println!("Error: Failed to send file: {}",e)
             }
@@ -124,6 +158,9 @@ pub fn loop_user_stdin(thrstdin_thrmain_channel_rx: Arc<Mutex<mpsc::Receiver<Tcp
                     streams.remove(i);
                 }
                 i = i+1;
+            }
+            if i == 0 {
+                println!("thrstdin: No connected clients.");
             }
         }
     }).unwrap();

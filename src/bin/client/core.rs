@@ -20,7 +20,16 @@ use crate::coreerr::CoreErr;
 #[allow(dead_code)]
 fn connect_server(ip: &str, port: u16) -> Result<TcpStream, String> {
     let ip_str: Vec<&str> = ip.split('.').collect();
-    let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
+    let ip_vec: Vec<u8> = ip_str.into_iter().map(
+        |val: &str| 
+            match val.parse::<u8>() {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("Error parsing port: {}", e);
+                    0
+                }
+            }
+    ).collect();
     let _ip: [u8; 4] = helpers::vec_to_arr(ip_vec);
     let addr: SocketAddr = SocketAddr::from((_ip, port));
     let stream: TcpStream = TcpStream::connect(addr).expect("Error connecting to node");
@@ -33,23 +42,43 @@ pub fn client() -> Result<(), CoreErr>{
         None => return Err(CoreErr { errmsg: format!("No target host ip specified"), errno: 1 })
     };
     let arg_port: u16 = match env::args().nth(2) {
-        Some(port) => port.parse::<u16>().unwrap(),
+        Some(port) => { 
+            match port.parse::<u16>() {
+                Ok(port) => port,
+                Err(e) => {
+                    return Err(CoreErr { errmsg: format!("Error: Failed to parse port: {}", e), errno: 1 })
+                }
+            }
+        }
         None => return Err(CoreErr { errmsg: format!("No target host port specified"), errno: 1 })
     };
     let ip_str: Vec<&str> = arg_host.as_str().split('.').collect();
-    let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
+    let ip_vec: Vec<u8> = ip_str.into_iter().map(
+        |val: &str| 
+            match val.parse::<u8>() {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("Error parsing port: {}", e);
+                    0
+                }
+            }
+    ).collect();
     let ip: [u8; 4] = helpers::vec_to_arr(ip_vec);
     let addr: SocketAddr = SocketAddr::from((ip, arg_port));
     let mut stream: TcpStream = TcpStream::connect(addr).expect("Error connecting to node");
     println!("core: Connected to server");
     println!("core: Initializing thread (stdin)");
-    let stream_thr_stdin: TcpStream = stream.try_clone().unwrap();
+    let stream_thr_stdin: TcpStream = match stream.try_clone() {
+        Ok(stream_thr_stdin) => stream_thr_stdin,
+        Err(e) => return Err(CoreErr { errmsg: format!("Error clonning TcpStream: {}", e), errno: 1})
+    };
     thrstdin::init_thread(stream_thr_stdin).unwrap();
     println!("core: Initializing thread (worker)");
-
     let t: JoinHandle<CoreErr> = thread::Builder::new().name("thr-conn-handler".to_string()).spawn(move || {
-        let ip: IpAddr = stream.peer_addr().unwrap().ip();
-        let port: u16 = stream.peer_addr().unwrap().port();
+        let (ip, port): (IpAddr, u16) = match stream.peer_addr() {
+            Ok(saddr) => (saddr.ip(), saddr.port()),
+            Err(e) => return CoreErr { errmsg: format!("Error fetching ip:port for client: {}", e), errno: 1}
+        };
         let stream_start_flag: &str = ">>>FILE_START>>>:";
         let stream_completed_flag: &str = "<<<FILE_END<<<";
         let bytes_to_read_per_attempt: usize = 1024;
@@ -72,9 +101,9 @@ pub fn client() -> Result<(), CoreErr>{
                             let time_fmt_file: String = now.replace(":", "-").replace(" ", "-");
                             let f_path: String = format!("{time_fmt_file}-recv.{file_extension}");
                             let mut total_bytes_read: Vec<u8> = data_1st_chunk.as_bytes().to_vec();
+                            let mut read_attempt_nr: i32 = 1;
                             println!(">>> Detected File-Init flag: {} - file transfer initiated", stream_start_flag);
                             println!(">>> Downloading file: {}", f_path.as_str());
-                            let mut read_attempt_nr: i32 = 1;
                             println!("Read {} bytes in cycle {}", total_bytes_read.len(), read_attempt_nr);
                             stream.flush().unwrap();
                             loop {

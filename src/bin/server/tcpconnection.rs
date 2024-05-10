@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::path::Path;
 use super::cstmconfig::AssetsConfig;
 use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::Local;
@@ -61,7 +62,7 @@ pub fn send_message(server_input: &String, mut socket: &TcpStream, logfile: &Str
     match socket.write(server_input.as_bytes()) {
         Ok(bytes) => {
             let now: DelayedFormat<StrftimeItems> = Local::now().format("%Y-%m-%d %H:%M:%S");
-            let msg = format!("[{}]: Sent to {}:{} [{} bytes] -- {}", now.to_string(), ip, port, bytes, server_input);
+            let msg: String = format!("[{}]: Sent to {}:{} [{} bytes] -- {}", now.to_string(), ip, port, bytes, server_input);
             cstmfiles::f_write(&logfile, msg.clone()).unwrap();
             println!("{}: {}", IDENTIFICATOR, msg);
         }, 
@@ -76,19 +77,30 @@ pub fn send_message(server_input: &String, mut socket: &TcpStream, logfile: &Str
 
 }
 
-pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) -> Result<(), String>{
-    let mut file: File = File::open(file_path).expect("Error opening file");
-    let file_extension: &str = cstmfiles::get_extension_from_filename(file_path).unwrap();
+pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_input: &str, port_input: u16) -> Result<(), String>{
+    if ! Path::exists(Path::new(file_path)) {
+        return Err(format!("{}: Error opening path: {}", IDENTIFICATOR, file_path));
+    }
+    let mut file: File = match File::open(file_path) {
+        Ok(f) => f,
+        Err(e) => return Err(format!("{}: Error opening file: {}: {}", IDENTIFICATOR, file_path, e))
+    };
+
+    let file_extension: &str = match cstmfiles::get_extension_from_filename(file_path) {
+        Some(ext) => ext,
+        None => return Err(format!("{}: Error determining file extension from input: {}", IDENTIFICATOR, file_path))
+    };
     let stream_start_flag: String = format!(">>>FILE_START>>>:{}\r\n", file_extension);
     let stream_completed_flag: &str = "<<<FILE_END<<<";
     let bytes_to_read_per_attempt: usize = 1024;
+
     for (_, mut s) in streams.iter().enumerate() {
         let (ip, port): (String, u16) = match s.peer_addr() {
             Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
             Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
         };
-        if ip == ip_port[0] && port == ip_port[1].parse::<u16>().unwrap() {
-            println!("{}: Sending file [{}] to {}:{}", IDENTIFICATOR, file_path, ip_port[0], ip_port[1]);
+        if ip == ip_input && port == port_input {
+            println!("{}: Sending file [{}] to {}:{}", IDENTIFICATOR, file_path, ip_input, port_input);
             /* add file-incomming flag and file extension to payload */
             let mut total_bytes_read: Vec<u8> = stream_start_flag.as_bytes().to_vec();
             let mut read_attempt_nr: i32 = 0;
@@ -112,7 +124,7 @@ pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) 
                 Ok(()) => println!(
                     "{}: File sent to {}:{} - size: {}b total/{}b flags", 
                     IDENTIFICATOR, 
-                    ip_port[0], ip_port[1], 
+                    ip_input, port_input, 
                     total_bytes_read.len(), 
                     stream_start_flag.len() + stream_completed_flag.len()
                 ),
@@ -126,7 +138,16 @@ pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_port: Vec<&str>) 
 
 pub fn connect_client(ip: &str, port: u16) -> Result<TcpStream, String> {
     let ip_str: Vec<&str> = ip.split('.').collect();
-    let ip_vec: Vec<u8> = ip_str.into_iter().map(|val: &str| val.parse::<u8>().unwrap()).collect();
+    let ip_vec: Vec<u8> = ip_str.into_iter().map(
+        |val: &str| 
+            match val.parse::<u8>() {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("Error parsing port: {}", e);
+                    0
+                }
+            }
+    ).collect();
     let _ip: [u8; 4] = helpers::vec_to_arr(ip_vec);
     let addr: SocketAddr = SocketAddr::from((_ip, port));
     let stream: TcpStream = TcpStream::connect(addr).expect("Error connecting to node");
@@ -135,9 +156,10 @@ pub fn connect_client(ip: &str, port: u16) -> Result<TcpStream, String> {
 
 pub fn process_stdin() -> String {
     let mut contents: String = String::new();
-    io::stdin()
-        .read_line(&mut contents)
-        .expect(format!("{}: Error reading stdin", IDENTIFICATOR).as_str());
+    match io::stdin().read_line(&mut contents) {
+        Ok(bytes) => println!("Input bytes: {}", bytes),
+        Err(e) => return format!("{}: Error reading stdin: {}", IDENTIFICATOR, e)
+    }
     let server_input: String = format!("{}", contents.trim());
     if server_input.is_empty() {
         let err: String = format!("{}: empty input", IDENTIFICATOR);
@@ -151,21 +173,17 @@ pub fn print_connected(streams: &Vec<TcpStream>) -> Vec<usize> {
     println!("\nConnected streams:");
     let mut streams_to_rm: Vec<usize> = Vec::new();
     for (i, s) in streams.iter().enumerate() {
-        let (ip, port): (String, u16) = match s.peer_addr() {
-            Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
+        match s.peer_addr() {
+            Ok(saddr) => {
+                println!("{} -- {}:{}", i, saddr.ip().to_string(), saddr.port());
+            }
             Err(e) => {
                 println!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e);
-                (String::from(""), 0)
+                println!("> Garbage-collector: index {} added for removal.", i);
+                streams_to_rm.push(i);
             }
-        };
-        if ip == String::from("") || port == 0 {
-            println!("> Garbage-collector: index {} added for removal.", i);
-            streams_to_rm.push(i);
-        } else {
-            println!("{} -- {}:{}", i, ip, port);
         }
     }
-    println!("");
     streams_to_rm
 }
 
@@ -175,15 +193,18 @@ pub fn dc_all_nodes(streams: &Vec<TcpStream>) {
     }
 }
 
-pub fn dc_node(streams: &Vec<TcpStream>, ip_port: Vec<&str>) -> Result<usize, String> {
+pub fn dc_node(streams: &Vec<TcpStream>, ip_input: &str, port_input: u16) -> Result<usize, String> {
     let mut idx: usize = 0;
     for (i, s) in streams.iter().enumerate() {
         let (ip, port): (String, u16) = match s.peer_addr() {
             Ok(saddr) => (saddr.ip().to_string(), saddr.port()),
             Err(e) => return Err(format!("{}: Error fetching ip:port for client: {}", IDENTIFICATOR, e))
         };
-        if ip == ip_port[0] && port == ip_port[1].parse::<u16>().unwrap() {
-            s.shutdown(Shutdown::Both).unwrap();
+        if ip == ip_input && port == port_input {
+            match s.shutdown(Shutdown::Both) {
+                Ok(()) => {},
+                Err(e) => return Err(format!("Error: Failed to shutdown socket: {}", e))
+            }
             idx = i;
             break;
         }
