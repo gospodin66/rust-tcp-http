@@ -77,6 +77,11 @@ pub fn send_message(server_input: &String, mut socket: &TcpStream, logfile: &Str
 
 }
 
+/*
+ * 
+ * 
+ * 
+ */
 pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_input: &str, port_input: u16) -> Result<(), String>{
     if ! Path::exists(Path::new(file_path)) {
         return Err(format!("{}: Error opening path: {}", IDENTIFICATOR, file_path));
@@ -122,11 +127,10 @@ pub fn send_file(streams: &Vec<TcpStream>, file_path: &str, ip_input: &str, port
             let fcontents: String = String::from_utf8_lossy(&total_bytes_read[..]).to_string();
             match s.write_all(fcontents.as_bytes()) {
                 Ok(()) => println!(
-                    "{}: File sent to {}:{} - size: {}b total/{}b flags", 
+                    "{}: File sent to {}:{} - size: {} bytes", 
                     IDENTIFICATOR, 
                     ip_input, port_input, 
-                    total_bytes_read.len(), 
-                    stream_start_flag.len() + stream_completed_flag.len()
+                    total_bytes_read.len() - (stream_start_flag.len() + stream_completed_flag.len())
                 ),
                 Err(e) => println!("thrstdin: Error writing to stream: {:?} -- {}", s, e),
             }

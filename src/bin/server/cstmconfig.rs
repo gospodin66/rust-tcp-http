@@ -1,4 +1,8 @@
+use std::{env, path::PathBuf};
+
 use local_ip_address::list_afinet_netifas;
+
+use crate::server::helpers;
 
 #[derive(Debug)]
 pub struct ServerConfig {
@@ -34,9 +38,12 @@ pub struct AppConfig {
 }
 
 
-
-//const ENV_PATH: &str = "/tmp/envfile/.env";
-const ENV_PATH: &str = "/home/cheki/workspace/rust-tcp-http/.env";
+fn get_env_path() -> PathBuf {
+    let mut env_path: PathBuf = env::current_dir().unwrap();
+    env_path = helpers::append_to_path(env_path, "/.env");
+    //println!("The current .env directory is {:?}", env_path);
+    env_path
+}
 
 
 #[allow(dead_code)]
@@ -53,7 +60,7 @@ impl AppConfig {
 
 impl BaseConfig {
     pub fn new_cfg() -> BaseConfig {
-        match dotenv::from_path(ENV_PATH).ok() {
+        match dotenv::from_path(get_env_path()).ok() {
             Some(_envpath) => {},
             None => {
                 println!("BaseConfig: Error loading env vars: loading default");
@@ -71,7 +78,7 @@ impl BaseConfig {
 
 impl AssetsConfig {
     pub fn new_cfg() -> AssetsConfig {
-        match dotenv::from_path(ENV_PATH).ok() {
+        match dotenv::from_path(get_env_path()).ok() {
             Some(_envpath) => {},
             None => {
                 println!("AssetsConfig: Error loading env vars: loading default");
@@ -93,16 +100,14 @@ impl AssetsConfig {
 
 impl ServerConfig {
     pub fn new_cfg() -> ServerConfig {
-        let network_interfaces = list_afinet_netifas();
+        let network_interfaces: Result<Vec<(String, std::net::IpAddr)>, local_ip_address::Error> = list_afinet_netifas();
         let mut host_ip: String = String::new();
-        match dotenv::from_path(ENV_PATH).ok() {
+        match dotenv::from_path(get_env_path()).ok() {
             Some(_envpath) => {},
             None => {
                 println!("ServerConfig: Error loading env vars - loading default");
                 let request_methods: String = String::from("GET,POST,OPTIONS,HEAD");
-                let req_meth: Vec<String> = request_methods.split(",")
-                                              .map(str::to_string)
-                                              .collect();
+                let req_meth: Vec<String> = request_methods.split(",").map(str::to_string).collect();
                 let _server_cfg : ServerConfig = ServerConfig {
                     host: String::from("127.0.0.1").to_string(),
                     port1: 31500_u16,
@@ -143,7 +148,7 @@ impl ServerConfig {
 
 impl DbConfig {
     pub fn new_cfg() -> DbConfig {
-        match dotenv::from_path(ENV_PATH).ok() {
+        match dotenv::from_path(get_env_path()).ok() {
             Some(_envpath) => {},
             None => {
                 println!("DbConfig: Error loading env vars: loading default");

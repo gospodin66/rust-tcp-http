@@ -115,7 +115,7 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
         Ok(tcp_stream_clone) => tcp_stream_clone,
         Err(e) => return Err(format!("{}: Error clonning TcpStream: {}", IDENTIFICATOR, e))
     };
-    let mut buffer: [u8; 4096] = [0; 4096];
+    let mut buffer: [u8; 1024] = [0; 1024];
     let mut _data: String = String::new();
     
     println!("\nReceived connection from {}:{}", ip, port);
@@ -123,7 +123,7 @@ fn handle_connection(stream: TcpStream, thrstdin_thrmain_channel_tx: Arc<Mutex<m
     match stream.peek(&mut buffer) {
         Ok(bytes) => {
             _data = String::from_utf8_lossy(&buffer[..]).trim_matches(char::from(0)).to_string();
-            println!("Connection [{}:{}]:\n>>> bytes: {}[b]\n>>> data: {:?}", ip, port, bytes, _data);
+            println!("Connection [{}:{}]:\n>>> bytes: {} bytes\n>>> data: {:?}", ip, port, bytes, _data);
         }
         Err(e) => return Err(format!("{}: Error recieving data: {}", IDENTIFICATOR, e))
     }

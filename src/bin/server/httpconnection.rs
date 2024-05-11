@@ -2,10 +2,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::net::TcpStream;
 use std::io::Write;
-use chrono::Local;
+use chrono::{DateTime, Local};
 use crate::server::cstmfiles;
 use crate::server::cstmconfig::{AssetsConfig, BaseConfig};
-use crate::server::headers;
 use crate::server::database;
 use crate::server::validator;
 
@@ -28,6 +27,22 @@ fn fetch_post_routes() -> Vec<&'static str> {
 fn fetch_empty_routes() -> Vec<&'static str> {
     return vec![]
 }
+fn fetch_headers(contents_len: usize) -> [String; 10] {
+    let now: DateTime<Local> = Local::now();
+    return [
+        String::from("content-type: text/html; charset=utf-8"),
+        format!("content-length: {}", contents_len),
+        format!("date: {}", now.to_rfc2822()),
+        String::from("cross-origin-embedder-policy: require-corp"),
+        String::from("cross-origin-opener-policy: cross-origin"),
+        String::from("cross-origin-resource-policy: same-origin"),
+        String::from("x-content-type-options: nosniff"),
+        String::from("x-frame-options: deny"),
+        String::from("referer-policy: no-referer"),
+        String::from("content-security-policy: connect-src 'self'; font-src 'self'; frame-src 'self'; img-src 'self'; manifest-src 'self'; media-src 'self'; object-src 'self'; script-src 'self'; style-src 'unsafe-inline'; worker-src 'self'"),
+    ];
+}
+
 
 fn parse_request_parameters(buffer: &str) -> HashMap<&str, &str> {
     let lines: Vec<&str> = buffer.split("\r\n").collect::<Vec<&str>>();
@@ -139,7 +154,7 @@ pub fn write_http_response(mut stream: &TcpStream, buffer: &str) -> Result<(), S
         }
     }
 
-    let headers: [String; 10] = headers::fetch_headers(contents_all.len());
+    let headers: [String; 10] = fetch_headers(contents_all.len());
     /*
      * HTTP text-based protocol response format:
      * 
